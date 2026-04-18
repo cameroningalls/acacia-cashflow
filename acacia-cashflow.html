@@ -150,11 +150,28 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
     <div class="goal-int-val" id="goal-int">—</div>
   </div>
 </div>
+<!-- RUNNING CASH POSITION -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid #7ab890;border-radius:6px;padding:12px 16px">
+    <div style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Income this month</div>
+    <div style="font-family:var(--script);font-size:24px;font-style:italic;color:#7ab890" id="cp-income">—</div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--red2);border-radius:6px;padding:12px 16px">
+    <div style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Expenses + debt pmts</div>
+    <div style="font-family:var(--script);font-size:24px;font-style:italic;color:var(--red2)" id="cp-out">—</div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px 16px" id="cp-card">
+    <div style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Cash position</div>
+    <div style="font-family:var(--script);font-size:24px;font-style:italic" id="cp-net">—</div>
+  </div>
+</div>
 <div class="tabs">
   <div class="tab active" onclick="showTab('debt')">Debt Dashboard</div>
   <div class="tab" onclick="showTab('pipeline')">Invoice Pipeline</div>
   <div class="tab" onclick="showTab('log')">Log Income</div>
+  <div class="tab" onclick="showTab('expenses')">Expenses</div>
   <div class="tab" onclick="showTab('entries')">Entries</div>
+  <div class="tab" onclick="showTab('phone')">📱</div>
 </div>
 <div id="tab-debt">
   <div class="stats-row">
@@ -172,10 +189,50 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
   </div>
   <div class="slbl">Accounts — click any to log a payment</div>
   <div class="debt-grid" id="debt-grid"></div>
-  <div class="slbl" style="margin-top:20px">Debt — year in view</div>
+  <!-- DEBT PAYOFF PROJECTOR -->
+  <div class="slbl" style="margin-top:20px">Payoff projector</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px 20px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="font-size:11px;color:var(--t2)">Extra monthly payment toward debt:</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-family:var(--script);font-size:18px;font-style:italic;color:var(--gold)">$</span>
+        <input type="number" id="extra-payment" value="500" min="0" step="100" style="background:var(--surface2);border:1px solid var(--border);color:var(--t1);font-family:var(--sans);font-size:13px;padding:6px 10px;border-radius:5px;width:100px;outline:none" oninput="renderProjector()">
+      </div>
+      <div style="font-size:10px;color:var(--t3)">Applied to highest APR first (avalanche)</div>
+    </div>
+    <div id="projector-rows"></div>
+    <div id="projector-total" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--t2)"></div>
+  </div>
+  <div class="slbl" style="margin-top:6px">Debt — year in view</div>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px 20px;margin-bottom:16px">
     <canvas id="debt-chart" height="110"></canvas>
     <div style="font-size:9px;color:var(--t3);margin-top:10px;letter-spacing:.04em;text-align:center">Each month is snapshotted when you log a payment. Total starts at your Apr 2026 balance and tracks down as you pay.</div>
+  </div>
+</div>
+<!-- EXPENSES TAB -->
+<div id="tab-expenses" style="display:none">
+  <div class="btn-row" style="margin-bottom:12px">
+    <button class="btn gold" onclick="openExpense()">+ Add Expense</button>
+    <button class="btn" onclick="exportExpensesCSV()" style="margin-left:auto">⬇ Export CSV</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px 16px">
+      <div style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Payroll this month</div>
+      <div style="font-family:var(--script);font-size:22px;font-style:italic;color:var(--red2)" id="exp-payroll">$0</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px 16px">
+      <div style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Other expenses</div>
+      <div style="font-family:var(--script);font-size:22px;font-style:italic;color:var(--red2)" id="exp-other">$0</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px 16px">
+      <div style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Total out</div>
+      <div style="font-family:var(--script);font-size:22px;font-style:italic;color:var(--red2)" id="exp-total">$0</div>
+    </div>
+  </div>
+  <div class="slbl" id="exp-lbl">Expenses — Apr 2026</div>
+  <div class="etable">
+    <div class="ehdr" style="grid-template-columns:65px 1fr 100px 90px 30px"><span>Date</span><span>Description</span><span>Category</span><span style="text-align:right">Amount</span><span></span></div>
+    <div id="exp-list"></div>
   </div>
 </div>
 <div id="tab-pipeline" style="display:none">
@@ -219,6 +276,34 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
     <div id="entries-list"></div>
   </div>
 </div>
+<!-- PHONE TAB -->
+<div id="tab-phone" style="display:none">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:24px;max-width:480px;margin:0 auto">
+    <div style="font-family:var(--script);font-size:28px;font-style:italic;color:var(--gold);margin-bottom:4px">Add to your home screen</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:20px;letter-spacing:.04em">One tap to open Acacia Cash Flow from your iPhone</div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="background:var(--gold);color:#0a1a04;font-family:var(--script);font-size:18px;font-style:italic;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+        <div><div style="font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px">Open in Safari</div><div style="font-size:11px;color:var(--t3)">This only works in Safari, not Chrome. Go to:<br><span style="color:var(--gold);font-family:var(--mono,monospace);font-size:10px">cameroningalls.github.io/acacia-cashflow/acacia-cashflow.html</span></div></div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="background:var(--gold);color:#0a1a04;font-family:var(--script);font-size:18px;font-style:italic;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+        <div><div style="font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px">Tap the Share button</div><div style="font-size:11px;color:var(--t3)">The box with an arrow pointing up — at the bottom of the screen in Safari.</div></div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="background:var(--gold);color:#0a1a04;font-family:var(--script);font-size:18px;font-style:italic;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+        <div><div style="font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px">Tap "Add to Home Screen"</div><div style="font-size:11px;color:var(--t3)">Scroll down in the share sheet. Name it "Acacia Cash Flow" and tap Add.</div></div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="background:var(--gold);color:#0a1a04;font-family:var(--script);font-size:18px;font-style:italic;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
+        <div><div style="font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px">Done — it's on your home screen</div><div style="font-size:11px;color:var(--t3)">Opens full screen like an app. Your data saves between sessions.</div></div>
+      </div>
+    </div>
+    <div style="margin-top:20px;padding:12px 16px;background:var(--surface2);border-radius:6px;font-size:10px;color:var(--t3);line-height:1.6">
+      <strong style="color:var(--t2)">Note on data:</strong> Your entries, pipeline, and debt data live in your browser's localStorage — they're tied to the browser you use. Safari on iPhone will have its own separate storage from Chrome on your Mac. Use the ⬇ Export CSV buttons to back up and transfer data between devices.
+    </div>
+  </div>
+</div>
 </div>
 </div>
 
@@ -247,11 +332,33 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
     <div class="modal-btns"><button class="btn" onclick="closePModal()">Cancel</button><button class="btn gold" onclick="savePipeline()">Save</button></div>
   </div>
 </div>
+<!-- EXPENSE MODAL -->
+<div class="modal-bg" id="emodal">
+  <div class="modal">
+    <div class="modal-title">Add Expense</div>
+    <div class="field"><label>Date</label><input type="date" id="ex-date"></div>
+    <div class="field"><label>Description</label><input type="text" id="ex-desc" placeholder="e.g. Nate — editing fee"></div>
+    <div class="field"><label>Amount ($)</label><input type="number" id="ex-amount" step="0.01"></div>
+    <div class="field"><label>Category</label>
+      <select id="ex-cat">
+        <option value="payroll">Payroll / Contractor</option>
+        <option value="software">Software / Subscriptions</option>
+        <option value="gear">Gear / Equipment</option>
+        <option value="travel">Travel / Mileage</option>
+        <option value="office">Office / Studio</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field"><label>Notes (optional)</label><input type="text" id="ex-notes"></div>
+    <div class="modal-btns"><button class="btn" onclick="closeEModal()">Cancel</button><button class="btn gold" onclick="saveExpense()">Save</button></div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 const GOAL=35000;
 let curMonth='2026-04';
+let expenses={};
 const DEBTS=[{id:'bh',name:'B&H Payboo ...8851',balance:2238.45,min:79,due:'Mar 27',apr:35.99,ac:'high'},{id:'amex',name:'AmEx Marriott ...91005',balance:125,min:35,due:'Apr 13',apr:28.24,ac:'high'},{id:'ch-0522',name:'Ink Unlimited ...0522',balance:951.59,min:40,due:'Apr 28',apr:22.74,ac:'high'},{id:'ch-8078',name:'Ink Preferred ...8078',balance:32248.42,min:810,due:'Apr 15',apr:19.49,ac:'mid'},{id:'ch-1661',name:'Ink Biz Cash ...1661',balance:3005.10,min:86,due:'May 7',apr:16.74,ac:'mid'},{id:'loc',name:'Bus Credit Line ...2001',balance:80631.22,min:1631.47,due:'May 1',apr:12.40,ac:'cool'},{id:'chrysler',name:'Chrysler Capital',balance:4710.76,min:960.88,due:'May 6',apr:7.48,ac:'cool'},{id:'ch-7763',name:'Personal CCard ...7763',balance:192.33,min:40,due:'May 12',apr:0,ac:'none'}];
 const SEED_E={'2026-02':[{id:'s1',date:'2026-02-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3167'},{id:'s2',date:'2026-02-13',project:'County of SLO — Dairy Creek',type:'income',amount:4292,notes:'Check #3101536'},{id:'s3',date:'2026-02-20',project:'City of El Paso de Robles (PRPD)',type:'income',amount:1400,notes:'Check #81829'}],'2026-03':[{id:'s4',date:'2026-03-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3171'},{id:'s5',date:'2026-03-13',project:'City of Paso — PRPD Annual Report',type:'income',amount:13600,notes:'Check #82338'}],'2026-04':[{id:'s6',date:'2026-04-03',project:'SLO Country Club (Jessica Maguire)',type:'income',amount:7392,notes:'HoneyBook Invoice #000360-002'}]};
 const SEED_P=[{id:'p1',project:'SCGC Monthly Retainer',client:'SCGC',amount:1699,invDate:'2026-04-01',dueDate:'2026-04-29',status:'invoiced'},{id:'p2',project:'Cal Poly Golf',client:'Cal Poly',amount:3000,invDate:'',dueDate:'2026-05-01',status:'pending'},{id:'p3',project:'SLO Country Club',client:'SLO CC',amount:7177,invDate:'2026-04-01',dueDate:'2026-04-15',status:'invoiced'},{id:'p4',project:'Idlers Spots — Deposit',client:'Idlers',amount:2250,invDate:'',dueDate:'2026-04-30',status:'pending'},{id:'p5',project:'M&A — Stanislaus',client:'M&A',amount:2000,invDate:'',dueDate:'2026-05-15',status:'pending'}];
@@ -278,13 +385,16 @@ function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){retur
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 function init(){
   const sd=lsGet('ac_debts');debts=sd||{};DEBTS.forEach(x=>{if(!debts[x.id])debts[x.id]={...x,paid:0};});
-  // Load all known months dynamically
   const months=genMonths();
   for(const m of months){const d=lsGet('ac_e_'+m);data[m]=d||(SEED_E[m]?[...SEED_E[m]]:[]);}
+  // Load expenses per month
+  for(const m of months){const ex=lsGet('ac_ex_'+m);expenses[m]=ex||[];}
   const sp=lsGet('ac_pipe');pipeline=sp||[...SEED_P];
   buildMonthSel();
   syncPipelineToEntries();
   renderAll();populateDebtSel();
+  attachAutocomplete('m-project');
+  attachAutocomplete('p-project');
 }
 function syncPipelineToEntries(){
   let changed=false;
@@ -385,7 +495,165 @@ function renderDebtChart(){
     }
   });
 }
-function renderAll(){renderStats();renderDebtGrid();renderDebtChart();renderEntries();renderPipeline();}
+function renderAll(){renderStats();renderDebtGrid();renderDebtChart();renderProjector();renderEntries();renderPipeline();renderExpenses();renderCashPosition();}
+function showTab(t){
+  ['debt','pipeline','log','expenses','entries','phone'].forEach((x,i)=>{
+    const el=document.getElementById('tab-'+x);if(el)el.style.display=x===t?'block':'none';
+    const tabs=document.querySelectorAll('.tab');if(tabs[i])tabs[i].className='tab'+(x===t?' active':'');
+  });
+}
+
+// ── CASH POSITION ──
+function renderCashPosition(){
+  const e=data[curMonth]||[];
+  const ex=expenses[curMonth]||[];
+  const income=e.filter(x=>x.type==='income').reduce((s,x)=>s+Number(x.amount),0);
+  const debtPmts=e.filter(x=>x.type==='payment').reduce((s,x)=>s+Number(x.amount),0);
+  const expTotal=ex.reduce((s,x)=>s+Number(x.amount),0);
+  const out=debtPmts+expTotal;
+  const net=income-out;
+  document.getElementById('cp-income').textContent=fmt(income);
+  document.getElementById('cp-out').textContent=fmt(out);
+  document.getElementById('cp-net').textContent=fmt(net);
+  const card=document.getElementById('cp-card');
+  const netEl=document.getElementById('cp-net');
+  if(card&&netEl){
+    card.style.borderLeft=net>=0?'3px solid #7ab890':'3px solid var(--red2)';
+    netEl.style.color=net>=0?'#7ab890':'var(--red2)';
+  }
+}
+
+// ── DEBT PAYOFF PROJECTOR ──
+function renderProjector(){
+  const extra=parseFloat(document.getElementById('extra-payment')?.value)||0;
+  const rows=document.getElementById('projector-rows');
+  const totEl=document.getElementById('projector-total');
+  if(!rows||!totEl)return;
+  // Build payoff simulation using avalanche
+  const accounts=DEBTS.filter(d=>d.apr>0).map(d=>({
+    ...d, balance:debts[d.id]?.balance||d.balance
+  })).filter(d=>d.balance>0).sort((a,b)=>b.apr-a.apr);
+  let totalMonths=0;
+  let totalInterest=0;
+  const results=[];
+  // Simple month-by-month simulation
+  let remaining=[...accounts.map(a=>({...a}))];
+  let month=0;
+  const maxMonths=360;
+  while(remaining.some(a=>a.balance>0)&&month<maxMonths){
+    month++;
+    let extraLeft=extra;
+    remaining.forEach((a,i)=>{
+      if(a.balance<=0)return;
+      const interest=a.balance*(a.apr/100/12);
+      totalInterest+=interest;
+      a.balance+=interest;
+      a.balance-=a.min;
+      if(a.balance<0)a.balance=0;
+    });
+    // Apply extra to highest APR with balance
+    for(let a of remaining){
+      if(a.balance>0&&extraLeft>0){
+        const pay=Math.min(a.balance,extraLeft);
+        a.balance-=pay;extraLeft-=pay;
+      }
+    }
+    remaining.forEach((a,i)=>{
+      if(!results[i])results[i]={...a,payoffMonth:0};
+      if(a.balance<=0&&!results[i].payoffMonth)results[i].payoffMonth=month;
+    });
+  }
+  totalMonths=month;
+  const mo=m=>{const yr=Math.floor(m/12);const mo=m%12;return yr>0?(yr+'y '+(mo>0?mo+'m':'')):mo+'m';};
+  rows.innerHTML=results.map(r=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:11px;color:var(--t2)">${r.name}</span>
+      <span style="font-size:11px;color:var(--t3)">${fmt(r.balance)}</span>
+      <span style="font-family:var(--script);font-size:14px;font-style:italic;color:${r.payoffMonth?'#7ab890':'var(--amber)'}">
+        ${r.payoffMonth?mo(r.payoffMonth):'360m+'}
+      </span>
+    </div>`).join('');
+  const debtFreeDate=new Date();
+  debtFreeDate.setMonth(debtFreeDate.getMonth()+totalMonths);
+  totEl.innerHTML=`Debt-free in <strong style="color:#7ab890">${mo(totalMonths)}</strong> · Est. total interest: <strong style="color:var(--red2)">${fmt(Math.round(totalInterest))}</strong> · <span style="color:var(--t3)">Debt-free ~${debtFreeDate.toLocaleString('default',{month:'short',year:'numeric'})}</span>`;
+}
+
+// ── EXPENSES ──
+function renderExpenses(){
+  const ex=expenses[curMonth]||[];
+  document.getElementById('exp-lbl').textContent='Expenses — '+mKey(curMonth);
+  const payroll=ex.filter(e=>e.cat==='payroll').reduce((s,e)=>s+Number(e.amount),0);
+  const other=ex.filter(e=>e.cat!=='payroll').reduce((s,e)=>s+Number(e.amount),0);
+  document.getElementById('exp-payroll').textContent=fmt(payroll);
+  document.getElementById('exp-other').textContent=fmt(other);
+  document.getElementById('exp-total').textContent=fmt(payroll+other);
+  const list=document.getElementById('exp-list');
+  const sorted=[...ex].sort((a,b)=>b.date.localeCompare(a.date));
+  if(!sorted.length){list.innerHTML='<div class="empty">No expenses logged yet</div>';return;}
+  list.innerHTML=sorted.map(e=>`
+    <div class="erow" style="grid-template-columns:65px 1fr 100px 90px 30px">
+      <span class="edate">${sDate(e.date)}</span>
+      <span><div class="eproj">${e.desc}</div>${e.notes?`<div class="enote">${e.notes}</div>`:''}</span>
+      <span><span class="ebadge payment" style="background:#1a1208;color:var(--amber)">${e.cat}</span></span>
+      <span class="eamt payment" style="text-align:right">-${fmt(Number(e.amount))}</span>
+      <span class="edel" onclick="delExpense('${e.id}')">✕</span>
+    </div>`).join('');
+}
+function openExpense(){
+  document.getElementById('ex-date').value=curMonth+'-01';
+  document.getElementById('ex-desc').value='';document.getElementById('ex-amount').value='';
+  document.getElementById('ex-cat').value='payroll';document.getElementById('ex-notes').value='';
+  document.getElementById('emodal').classList.add('open');
+}
+function closeEModal(){document.getElementById('emodal').classList.remove('open');}
+function saveExpense(){
+  const date=document.getElementById('ex-date').value;
+  const desc=document.getElementById('ex-desc').value.trim();
+  const amount=parseFloat(document.getElementById('ex-amount').value);
+  const cat=document.getElementById('ex-cat').value;
+  const notes=document.getElementById('ex-notes').value.trim();
+  if(!desc||!amount||isNaN(amount))return;
+  if(!expenses[curMonth])expenses[curMonth]=[];
+  expenses[curMonth].push({id:uid(),date,desc,amount,cat,notes});
+  lsSet('ac_ex_'+curMonth,expenses[curMonth]);
+  renderExpenses();renderCashPosition();closeEModal();
+}
+function delExpense(id){
+  expenses[curMonth]=(expenses[curMonth]||[]).filter(e=>e.id!==id);
+  lsSet('ac_ex_'+curMonth,expenses[curMonth]);renderExpenses();renderCashPosition();
+}
+function exportExpensesCSV(){
+  const rows=[['Date','Month','Description','Category','Amount','Notes']];
+  genMonths().forEach(m=>(expenses[m]||[]).sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
+    rows.push([e.date,mKey(m),e.desc,e.cat,e.amount,e.notes||'']);
+  }));
+  dlCSV(rows,'acacia-expenses.csv');
+}
+
+// ── PROJECT AUTOCOMPLETE ──
+function getRecentProjects(){
+  const seen=new Set();const list=[];
+  genMonths().reverse().forEach(m=>{
+    (data[m]||[]).forEach(e=>{if(e.project&&!seen.has(e.project)){seen.add(e.project);list.push(e.project);}});
+  });
+  pipeline.forEach(p=>{if(p.project&&!seen.has(p.project)){seen.add(p.project);list.push(p.project);}});
+  return list.slice(0,30);
+}
+function attachAutocomplete(inputId){
+  const input=document.getElementById(inputId);if(!input)return;
+  let listEl=document.getElementById(inputId+'-ac');
+  if(!listEl){listEl=document.createElement('div');listEl.id=inputId+'-ac';listEl.style.cssText='position:absolute;z-index:200;background:#2e332a;border:1px solid #3d4438;border-radius:5px;max-height:160px;overflow-y:auto;width:100%';input.parentElement.style.position='relative';input.parentElement.appendChild(listEl);}
+  input.addEventListener('input',()=>{
+    const val=input.value.toLowerCase();
+    if(!val){listEl.innerHTML='';return;}
+    const matches=getRecentProjects().filter(p=>p.toLowerCase().includes(val));
+    listEl.innerHTML=matches.slice(0,8).map(p=>{
+      const safe=p.replace(/'/g,'&apos;');
+      return'<div onclick="var i=document.getElementById(\''+inputId+'\');i.value=\''+safe+'\';document.getElementById(\''+inputId+'-ac\').innerHTML=\'\'" style="padding:8px 12px;font-size:11px;cursor:pointer;color:#b8b4a8;border-bottom:1px solid #3d4438" onmouseover="this.style.background=\'#383d33\'" onmouseout="this.style.background=\'\'">'+p+'</div>';
+    }).join('');
+  });
+  document.addEventListener('click',e=>{if(!input.contains(e.target))listEl.innerHTML='';});
+}
 function setPipeFilter(f){
   pipeFilter=f;
   const mBtn=document.getElementById('pipe-filter-month');
@@ -426,6 +694,7 @@ function renderDebtGrid(){
 }
 function renderEntries(){
   renderGoal();
+  renderCashPosition();
   const e=data[curMonth]||[];
   document.getElementById('entries-lbl').textContent='Entries — '+mKey(curMonth);
   const s=[...e].sort((a,b)=>b.date.localeCompare(a.date));
@@ -468,8 +737,8 @@ function renderPipeline(){
 function switchMonth(m){
   curMonth=m;
   if(!data[curMonth])data[curMonth]=[];
-  renderEntries();
-  renderPipeline();
+  if(!expenses[curMonth])expenses[curMonth]=[];
+  renderEntries();renderPipeline();renderExpenses();renderCashPosition();
 }
 function showTab(t){['debt','pipeline','log','entries'].forEach((x,i)=>{document.getElementById('tab-'+x).style.display=x===t?'block':'none';document.querySelectorAll('.tab')[i].className='tab'+(x===t?' active':'');});}
 function dzOv(e){e.preventDefault();document.getElementById('dz').classList.add('drag');}
