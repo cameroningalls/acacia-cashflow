@@ -74,6 +74,13 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
 .pr-date-input:focus{border-bottom:1px solid var(--gold);color:var(--t1)}
 .pr-date-input.overdue{color:var(--red2)}
 .pr-date-input::-webkit-calendar-picker-indicator{filter:invert(0.5);cursor:pointer;opacity:.5;width:10px}
+.pr-amt-input{background:transparent;border:none;border-bottom:1px dashed var(--border);font-family:var(--script);font-size:16px;font-style:italic;width:86px;outline:none;cursor:text;padding:1px 2px;border-radius:0;-moz-appearance:textfield}
+.pr-amt-input::-webkit-outer-spin-button,.pr-amt-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.pr-amt-input:hover{border-bottom-color:var(--sage)}
+.pr-amt-input:focus{border-bottom:1px solid var(--gold)}
+.pr-amt-input.received{color:#7ab890}
+.pr-amt-input.pending{color:var(--gold)}
+.pr-amt-input.overdue{color:var(--red2)}
 .pr-badge{font-size:9px;font-weight:600;letter-spacing:.04em;padding:3px 9px;border-radius:3px;width:fit-content;display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none;transition:opacity .15s}
 .pr-badge:hover{opacity:.75}
 .pr-badge::after{content:'↕';font-size:8px;opacity:.5}
@@ -124,11 +131,7 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
   </div>
   <div class="hdr-divider" style="margin-left:20px">Cash Flow Dashboard</div>
   <div class="hdr-right">
-    <select class="month-sel" id="month-sel" onchange="switchMonth(this.value)">
-      <option value="2026-02">Feb 2026</option>
-      <option value="2026-03">Mar 2026</option>
-      <option value="2026-04" selected>Apr 2026</option>
-    </select>
+    <select class="month-sel" id="month-sel" onchange="switchMonth(this.value)"></select>
   </div>
 </div>
 <div class="main">
@@ -169,12 +172,24 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
   </div>
   <div class="slbl">Accounts — click any to log a payment</div>
   <div class="debt-grid" id="debt-grid"></div>
+  <div class="slbl" style="margin-top:20px">Debt — year in view</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px 20px;margin-bottom:16px">
+    <canvas id="debt-chart" height="110"></canvas>
+    <div style="font-size:9px;color:var(--t3);margin-top:10px;letter-spacing:.04em;text-align:center">Each month is snapshotted when you log a payment. Total starts at your Apr 2026 balance and tracks down as you pay.</div>
+  </div>
 </div>
 <div id="tab-pipeline" style="display:none">
-  <div class="btn-row" style="margin-bottom:12px"><button class="btn gold" onclick="openPipeline()">+ Add Invoice / Project</button><button class="btn" onclick="exportPipelineCSV()" style="margin-left:auto">⬇ Export CSV</button></div>
-  <div style="font-size:10px;color:var(--t3);letter-spacing:.03em;margin-bottom:10px">Click any status badge to cycle: pending → invoiced → overdue → received ✓</div>
+  <div class="btn-row" style="margin-bottom:10px">
+    <button class="btn gold" onclick="openPipeline()">+ Add Invoice / Project</button>
+    <div style="display:flex;gap:2px;background:var(--surface2);border-radius:5px;padding:3px;margin-left:8px">
+      <button id="pipe-filter-month" class="btn" style="padding:6px 12px;font-size:9px;background:var(--gold);color:#0a1a04" onclick="setPipeFilter('month')">This month</button>
+      <button id="pipe-filter-all" class="btn" style="padding:6px 12px;font-size:9px;background:transparent;color:var(--t3)" onclick="setPipeFilter('all')">All</button>
+    </div>
+    <button class="btn" onclick="exportPipelineCSV()" style="margin-left:auto">⬇ Export CSV</button>
+  </div>
+  <div style="font-size:10px;color:var(--t3);letter-spacing:.03em;margin-bottom:10px">Click any status badge to cycle: pending → invoiced → overdue → received ✓ · Amount, dates editable inline</div>
   <div class="pipeline-grid">
-    <div class="pipeline-hdr"><span>Project</span><span>Amount</span><span>Invoice Date ✎</span><span>Due / Received ✎</span><span>Status</span><span></span></div>
+    <div class="pipeline-hdr"><span>Project</span><span>Amount ✎</span><span>Invoice Date ✎</span><span>Due / Received ✎</span><span>Status</span><span></span></div>
     <div id="pipeline-rows"></div>
     <div class="pipeline-total" id="pipeline-total"></div>
   </div>
@@ -233,22 +248,156 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 const GOAL=35000;
 let curMonth='2026-04';
 const DEBTS=[{id:'bh',name:'B&H Payboo ...8851',balance:2238.45,min:79,due:'Mar 27',apr:35.99,ac:'high'},{id:'amex',name:'AmEx Marriott ...91005',balance:125,min:35,due:'Apr 13',apr:28.24,ac:'high'},{id:'ch-0522',name:'Ink Unlimited ...0522',balance:951.59,min:40,due:'Apr 28',apr:22.74,ac:'high'},{id:'ch-8078',name:'Ink Preferred ...8078',balance:32248.42,min:810,due:'Apr 15',apr:19.49,ac:'mid'},{id:'ch-1661',name:'Ink Biz Cash ...1661',balance:3005.10,min:86,due:'May 7',apr:16.74,ac:'mid'},{id:'loc',name:'Bus Credit Line ...2001',balance:80631.22,min:1631.47,due:'May 1',apr:12.40,ac:'cool'},{id:'chrysler',name:'Chrysler Capital',balance:4710.76,min:960.88,due:'May 6',apr:7.48,ac:'cool'},{id:'ch-7763',name:'Personal CCard ...7763',balance:192.33,min:40,due:'May 12',apr:0,ac:'none'}];
 const SEED_E={'2026-02':[{id:'s1',date:'2026-02-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3167'},{id:'s2',date:'2026-02-13',project:'County of SLO — Dairy Creek',type:'income',amount:4292,notes:'Check #3101536'},{id:'s3',date:'2026-02-20',project:'City of El Paso de Robles (PRPD)',type:'income',amount:1400,notes:'Check #81829'}],'2026-03':[{id:'s4',date:'2026-03-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3171'},{id:'s5',date:'2026-03-13',project:'City of Paso — PRPD Annual Report',type:'income',amount:13600,notes:'Check #82338'}],'2026-04':[{id:'s6',date:'2026-04-03',project:'SLO Country Club (Jessica Maguire)',type:'income',amount:7392,notes:'HoneyBook Invoice #000360-002'}]};
 const SEED_P=[{id:'p1',project:'SCGC Monthly Retainer',client:'SCGC',amount:1699,invDate:'2026-04-01',dueDate:'2026-04-29',status:'invoiced'},{id:'p2',project:'Cal Poly Golf',client:'Cal Poly',amount:3000,invDate:'',dueDate:'2026-05-01',status:'pending'},{id:'p3',project:'SLO Country Club',client:'SLO CC',amount:7177,invDate:'2026-04-01',dueDate:'2026-04-15',status:'invoiced'},{id:'p4',project:'Idlers Spots — Deposit',client:'Idlers',amount:2250,invDate:'',dueDate:'2026-04-30',status:'pending'},{id:'p5',project:'M&A — Stanislaus',client:'M&A',amount:2000,invDate:'',dueDate:'2026-05-15',status:'pending'}];
-let data={},debts={},pipeline=[],debtPayId=null;
+let data={},debts={},pipeline=[],debtPayId=null,pipeFilter='month';
+const MO_NAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function genMonths(){
+  // Jan 2026 through Dec 2026, plus any months that have saved data
+  const months=[];
+  for(let m=1;m<=12;m++){const k='2026-'+(m<10?'0'+m:m);months.push(k);}
+  // also include any extra months saved in localStorage
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith('ac_e_')){const m=k.replace('ac_e_','');if(!months.includes(m))months.push(m);}
+  }
+  return months.sort();
+}
+function mKey(m){const p=m.split('-');return MO_NAMES[parseInt(p[1])-1]+' '+p[0];}
+function buildMonthSel(){
+  const months=genMonths();
+  const sel=document.getElementById('month-sel');
+  sel.innerHTML=months.map(m=>`<option value="${m}"${m===curMonth?' selected':''}>${mKey(m)}</option>`).join('');
+}
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 function init(){
   const sd=lsGet('ac_debts');debts=sd||{};DEBTS.forEach(x=>{if(!debts[x.id])debts[x.id]={...x,paid:0};});
-  for(const m of['2026-02','2026-03','2026-04']){const d=lsGet('ac_e_'+m);data[m]=d||(SEED_E[m]?[...SEED_E[m]]:[]);}
+  // Load all known months dynamically
+  const months=genMonths();
+  for(const m of months){const d=lsGet('ac_e_'+m);data[m]=d||(SEED_E[m]?[...SEED_E[m]]:[]);}
   const sp=lsGet('ac_pipe');pipeline=sp||[...SEED_P];
+  buildMonthSel();
+  syncPipelineToEntries();
   renderAll();populateDebtSel();
 }
-function renderAll(){renderStats();renderDebtGrid();renderEntries();renderPipeline();}
+function syncPipelineToEntries(){
+  let changed=false;
+  pipeline.filter(p=>p.status==='received').forEach(p=>{
+    const entryId='pipe_'+p.id;
+    // Determine which month this entry belongs to
+    const dateStr=p.dueDate||new Date().toISOString().split('T')[0];
+    const month=dateStr.slice(0,7);
+    if(!data[month])data[month]=[];
+    const already=data[month].find(e=>e.id===entryId);
+    if(!already){
+      data[month].push({id:entryId,date:dateStr,project:p.project+(p.client?' — '+p.client:''),amount:p.amount,type:'income',notes:'From pipeline'});
+      lsSet('ac_e_'+month,data[month]);
+      changed=true;
+    }
+  });
+  return changed;
+}
+let debtChart=null;
+const CHART_MONTHS=['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+const CHART_LABELS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function totalDebtNow(){return Object.values(debts).reduce((s,d)=>s+(d.balance||0),0);}
+function snapshotDebt(){
+  // Save current total for current month
+  const snaps=lsGet('ac_debt_snaps')||{};
+  snaps[curMonth]=totalDebtNow();
+  lsSet('ac_debt_snaps',snaps);
+}
+function renderDebtChart(){
+  const snaps=lsGet('ac_debt_snaps')||{};
+  // Seed Apr 2026 with current total if not yet snapshotted
+  const currentTotal=totalDebtNow();
+  if(!snaps['2026-04']) snaps['2026-04']=currentTotal;
+  const vals=CHART_MONTHS.map(m=>snaps[m]!=null?snaps[m]:null);
+  const ctx=document.getElementById('debt-chart');
+  if(!ctx)return;
+  // Fill gaps — carry forward last known value for display
+  let last=null;
+  const filled=vals.map(v=>{if(v!=null)last=v;return last;});
+  // But only show up to current month +1
+  const curIdx=CHART_MONTHS.indexOf(curMonth);
+  const display=filled.map((v,i)=>i<=curIdx?v:null);
+  const dark=true;
+  const gold='#B8852C';
+  const goldFade='rgba(184,130,44,0.15)';
+  const red='#e06050';
+  if(debtChart){debtChart.destroy();debtChart=null;}
+  debtChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:CHART_LABELS,
+      datasets:[{
+        label:'Total Debt',
+        data:display,
+        borderColor:gold,
+        backgroundColor:goldFade,
+        borderWidth:2,
+        pointBackgroundColor:gold,
+        pointBorderColor:gold,
+        pointRadius:display.map((v,i)=>v!=null&&(i===0||display[i-1]==null||display[i]!==display[i-1])?4:2),
+        pointHoverRadius:6,
+        fill:true,
+        tension:0.3,
+        spanGaps:false,
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1e1e1b',
+          borderColor:'#3d4438',
+          borderWidth:1,
+          titleColor:'#b8b4a8',
+          bodyColor:'#B8852C',
+          titleFont:{family:"'Montserrat',sans-serif",size:10},
+          bodyFont:{family:"'Playfair Display',serif",size:14,style:'italic'},
+          callbacks:{
+            label:ctx=>ctx.parsed.y!=null?' '+fmt(ctx.parsed.y):' —',
+            title:ctx=>ctx[0].label+' 2026'
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{color:'rgba(255,255,255,0.04)'},
+          ticks:{color:'#6a6860',font:{family:"'Montserrat',sans-serif",size:9},maxRotation:0}
+        },
+        y:{
+          grid:{color:'rgba(255,255,255,0.04)'},
+          ticks:{color:'#6a6860',font:{family:"'Montserrat',sans-serif",size:9},callback:v=>'$'+Math.round(v/1000)+'k'},
+          reverse:false
+        }
+      }
+    }
+  });
+}
+function renderAll(){renderStats();renderDebtGrid();renderDebtChart();renderEntries();renderPipeline();}
+function setPipeFilter(f){
+  pipeFilter=f;
+  const mBtn=document.getElementById('pipe-filter-month');
+  const aBtn=document.getElementById('pipe-filter-all');
+  if(mBtn&&aBtn){
+    mBtn.style.background=f==='month'?'var(--gold)':'transparent';
+    mBtn.style.color=f==='month'?'#0a1a04':'var(--t3)';
+    aBtn.style.background=f==='all'?'var(--gold)':'transparent';
+    aBtn.style.color=f==='all'?'#0a1a04':'var(--t3)';
+  }
+  renderPipeline();
+}
 function estInt(){return Object.values(debts).reduce((s,d)=>{const apr=(DEBTS.find(x=>x.id===d.id)||{}).apr||0;return s+(d.balance*(apr/100/12));},0);}
 function projRec(){return pipeline.filter(p=>p.status!=='received').reduce((s,p)=>s+(p.amount||0),0);}
 function renderStats(){
@@ -278,7 +427,7 @@ function renderDebtGrid(){
 function renderEntries(){
   renderGoal();
   const e=data[curMonth]||[];
-  document.getElementById('entries-lbl').textContent='Entries — '+mName(curMonth);
+  document.getElementById('entries-lbl').textContent='Entries — '+mKey(curMonth);
   const s=[...e].sort((a,b)=>b.date.localeCompare(a.date));
   const l=document.getElementById('entries-list');
   if(!s.length){l.innerHTML='<div class="empty">No entries yet</div>';return;}
@@ -288,23 +437,40 @@ function renderPipeline(){
   const rows=document.getElementById('pipeline-rows');
   if(!pipeline.length){rows.innerHTML='<div class="empty">No invoices yet</div>';document.getElementById('pipeline-total').textContent='';return;}
   const today=new Date();
-  const sorted=[...pipeline].sort((a,b)=>{
+  // Filter by month if needed — match on dueDate or invDate month
+  const visible=pipeFilter==='month'
+    ? pipeline.filter(p=>{
+        const d=p.dueDate||p.invDate||'';
+        return d.startsWith(curMonth);
+      })
+    : pipeline;
+  const sorted=[...visible].sort((a,b)=>{
     if(!a.dueDate&&!b.dueDate)return 0;
     if(!a.dueDate)return 1;
     if(!b.dueDate)return -1;
     return a.dueDate.localeCompare(b.dueDate);
   });
+  if(!sorted.length){
+    rows.innerHTML=`<div class="empty">${pipeFilter==='month'?'No invoices for '+mKey(curMonth)+' — switch to All or add one':'No invoices yet'}</div>`;
+    document.getElementById('pipeline-total').innerHTML='';
+    return;
+  }
   rows.innerHTML=sorted.map(p=>{
     const over=p.status==='invoiced'&&p.dueDate&&new Date(p.dueDate)<today;
     const st=over?'overdue':p.status;const ac=st==='received'?'received':st==='overdue'?'overdue':'pending';
     const dateVal=p.dueDate||'';
     const dateClass='pr-date-input'+(st==='overdue'?' overdue':'');
-    return`<div class="pipeline-row"><span><div class="pr-project">${p.project}</div><div class="pr-client">${p.client||''}</div></span><span class="pr-amt ${ac}">${fmt(p.amount)}</span><span><input type="date" class="pr-date-input" value="${p.invDate||''}" title="Click to set invoice date" onchange="updateInvDate('${p.id}',this.value)"></span><span><input type="date" class="${dateClass}" value="${dateVal}" title="Click to set due / received date" onchange="updateDueDate('${p.id}',this.value)"></span><span><span class="pr-badge ${st}" onclick="cycleStatus('${p.id}')" title="Click to change status">${st}</span></span><span class="pr-del" onclick="delPipe('${p.id}')">✕</span></div>`;
+    return`<div class="pipeline-row"><span><div class="pr-project">${p.project}</div><div class="pr-client">${p.client||''}</div></span><span><input type="number" class="pr-amt-input ${ac}" value="${p.amount}" step="0.01" title="Click to edit amount" onchange="updateAmount('${p.id}',this.value)"></span><span><input type="date" class="pr-date-input" value="${p.invDate||''}" title="Click to set invoice date" onchange="updateInvDate('${p.id}',this.value)"></span><span><input type="date" class="${dateClass}" value="${dateVal}" title="Click to set due / received date" onchange="updateDueDate('${p.id}',this.value)"></span><span><span class="pr-badge ${st}" onclick="cycleStatus('${p.id}')" title="Click to change status">${st}</span></span><span class="pr-del" onclick="delPipe('${p.id}')">✕</span></div>`;
   }).join('');
-  const tot=pipeline.reduce((s,p)=>s+(p.amount||0),0);const rec=pipeline.filter(p=>p.status==='received').reduce((s,p)=>s+(p.amount||0),0);const pend=tot-rec;
+  const tot=sorted.reduce((s,p)=>s+(p.amount||0),0);const rec=sorted.filter(p=>p.status==='received').reduce((s,p)=>s+(p.amount||0),0);const pend=tot-rec;
   document.getElementById('pipeline-total').innerHTML=`<span style="color:var(--t2);font-size:10px;letter-spacing:.06em">TOTAL PIPELINE</span><span style="font-family:var(--script);font-style:italic;font-size:18px;color:var(--gold)">${fmt(tot)}</span><span></span><span></span><span style="font-size:10px;color:var(--t3)">Received: <span style="color:#7ab890">${fmt(rec)}</span> · Pending: <span style="color:var(--gold)">${fmt(pend)}</span></span><span></span>`;
 }
-function switchMonth(m){curMonth=m;renderEntries();}
+function switchMonth(m){
+  curMonth=m;
+  if(!data[curMonth])data[curMonth]=[];
+  renderEntries();
+  renderPipeline();
+}
 function showTab(t){['debt','pipeline','log','entries'].forEach((x,i)=>{document.getElementById('tab-'+x).style.display=x===t?'block':'none';document.querySelectorAll('.tab')[i].className='tab'+(x===t?' active':'');});}
 function dzOv(e){e.preventDefault();document.getElementById('dz').classList.add('drag');}
 function dzLv(){document.getElementById('dz').classList.remove('drag');}
@@ -349,10 +515,17 @@ function saveModal(){
   const date=document.getElementById('m-date').value,project=document.getElementById('m-project').value.trim(),amount=parseFloat(document.getElementById('m-amount').value),type=document.getElementById('m-type').value,notes=document.getElementById('m-notes').value.trim(),debtId=document.getElementById('m-debt').value;
   if(!project||!amount||isNaN(amount))return;
   addEntry({id:uid(),date,project,amount,type,notes});
-  if(type==='payment'&&debtId&&debts[debtId]){debts[debtId].balance=Math.max(0,(debts[debtId].balance||0)-amount);debts[debtId].paid=(debts[debtId].paid||0)+amount;lsSet('ac_debts',debts);renderStats();renderDebtGrid();}
+  if(type==='payment'&&debtId&&debts[debtId]){debts[debtId].balance=Math.max(0,(debts[debtId].balance||0)-amount);debts[debtId].paid=(debts[debtId].paid||0)+amount;lsSet('ac_debts',debts);snapshotDebt();renderStats();renderDebtGrid();renderDebtChart();}
   closeModal();
 }
-function openPipeline(){const t=new Date().toISOString().split('T')[0];document.getElementById('p-project').value='';document.getElementById('p-client').value='';document.getElementById('p-amount').value='';document.getElementById('p-inv-date').value=t;document.getElementById('p-due-date').value='';document.getElementById('p-status').value='invoiced';document.getElementById('pmodal').classList.add('open');}
+function openPipeline(){
+  const t=new Date().toISOString().split('T')[0];
+  const monthDefault=curMonth+'-01';
+  document.getElementById('p-project').value='';document.getElementById('p-client').value='';
+  document.getElementById('p-amount').value='';document.getElementById('p-inv-date').value=t;
+  document.getElementById('p-due-date').value=monthDefault;
+  document.getElementById('p-status').value='invoiced';document.getElementById('pmodal').classList.add('open');
+}
 function closePModal(){document.getElementById('pmodal').classList.remove('open');}
 function savePipeline(){
   const item={id:uid(),project:document.getElementById('p-project').value.trim(),client:document.getElementById('p-client').value.trim(),amount:parseFloat(document.getElementById('p-amount').value)||0,invDate:document.getElementById('p-inv-date').value,dueDate:document.getElementById('p-due-date').value,status:document.getElementById('p-status').value};
@@ -380,20 +553,30 @@ function cycleStatus(id){
   const idx=order.indexOf(p.status);
   p.status=order[(idx+1)%order.length];
   const nowReceived=p.status==='received';
-  // Auto-log income entry when flipped TO received
+  const entryId='pipe_'+id;
+  const dateStr=p.dueDate||new Date().toISOString().split('T')[0];
+  const month=dateStr.slice(0,7);
+  if(!data[month])data[month]=[];
   if(!wasReceived&&nowReceived){
-    const date=p.dueDate||new Date().toISOString().split('T')[0];
-    const entry={id:'pipe_'+id,date,project:p.project+(p.client?' — '+p.client:''),amount:p.amount,type:'income',notes:'From pipeline'};
-    if(!data[curMonth])data[curMonth]=[];
-    // avoid duplicate
-    data[curMonth]=data[curMonth].filter(e=>e.id!=='pipe_'+id);
-    data[curMonth].push(entry);
-    lsSet('ac_e_'+curMonth,data[curMonth]);
+    data[month]=data[month].filter(e=>e.id!==entryId);
+    data[month].push({id:entryId,date:dateStr,project:p.project+(p.client?' — '+p.client:''),amount:p.amount,type:'income',notes:'From pipeline'});
+    lsSet('ac_e_'+month,data[month]);
   }
-  // Remove auto-logged entry if flipped AWAY from received
   if(wasReceived&&!nowReceived){
-    data[curMonth]=(data[curMonth]||[]).filter(e=>e.id!=='pipe_'+id);
-    lsSet('ac_e_'+curMonth,data[curMonth]);
+    data[month]=data[month].filter(e=>e.id!==entryId);
+    lsSet('ac_e_'+month,data[month]);
+  }
+  lsSet('ac_pipe',pipeline);renderPipeline();renderStats();renderEntries();
+}
+function updateAmount(id,val){
+  const p=pipeline.find(x=>x.id===id);if(!p)return;
+  p.amount=parseFloat(val)||0;
+  // if already received, update the linked entry amount too
+  const entryId='pipe_'+id;
+  const month=(p.dueDate||new Date().toISOString().split('T')[0]).slice(0,7);
+  if(data[month]){
+    const entry=data[month].find(e=>e.id===entryId);
+    if(entry){entry.amount=p.amount;lsSet('ac_e_'+month,data[month]);}
   }
   lsSet('ac_pipe',pipeline);renderPipeline();renderStats();renderEntries();
 }
@@ -413,11 +596,11 @@ function mName(m){return({'2026-02':'Feb 2026','2026-03':'Mar 2026','2026-04':'A
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 async function toB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
 function exportEntriesCSV(){
-  const months=['2026-02','2026-03','2026-04'];
+  const months=genMonths();
   const rows=[['Date','Month','Project / Client','Type','Amount','Notes']];
   months.forEach(m=>{
     (data[m]||[]).sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
-      rows.push([e.date,mName(m),e.project,e.type,e.amount,e.notes||'']);
+      rows.push([e.date,mKey(m),e.project,e.type,e.amount,e.notes||'']);
     });
   });
   dlCSV(rows,'acacia-cashflow-entries.csv');
