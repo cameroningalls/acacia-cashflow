@@ -243,6 +243,7 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
       <button id="pipe-filter-all" class="btn" style="padding:6px 12px;font-size:9px;background:transparent;color:var(--t3)" onclick="setPipeFilter('all')">All</button>
     </div>
     <button class="btn" onclick="exportPipelineCSV()" style="margin-left:auto">⬇ Export CSV</button>
+    <label class="btn" style="cursor:pointer">⬆ Import CSV<input type="file" accept=".csv" style="display:none" onchange="importPipelineCSV(this)"></label>
   </div>
   <div style="font-size:10px;color:var(--t3);letter-spacing:.03em;margin-bottom:10px">Click any status badge to cycle: pending → invoiced → overdue → received ✓ · Amount, dates editable inline</div>
   <div class="pipeline-grid">
@@ -266,10 +267,34 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
     </div>
     <div class="btn-row"><button class="btn forest" onclick="openManual()">+ Manual Entry</button></div>
   </div>
+  <!-- CC STATEMENT DROP ZONE -->
+  <div class="intake" style="margin-top:12px">
+    <div class="slbl" style="margin-bottom:10px">Drop CC / Loan Statements — updates debt balances automatically</div>
+    <div class="dz" id="stmt-dz" onclick="document.getElementById('stmt-fi').click()" ondragover="stmtOv(event)" ondragleave="stmtLv()" ondrop="stmtDp(event)" style="border-color:#3d4438">
+      <div style="font-size:18px;margin-bottom:6px;opacity:.5">🏦</div>
+      <div class="dz-txt">Drop a Chase, AmEx, B&amp;H, Chrysler, or LOC statement PDF</div>
+      <div class="dz-sub">Claude reads the new balance and updates your debt dashboard instantly</div>
+    </div>
+    <input type="file" id="stmt-fi" multiple accept=".pdf,image/*" onchange="handleStatements(this.files)">
+    <div class="ai-st" id="stmt-st"></div>
+    <!-- RESULT CARDS -->
+    <div id="stmt-results" style="display:none;margin-top:12px">
+      <div class="slbl" style="margin-bottom:8px">Extracted — confirm to apply</div>
+      <div id="stmt-cards" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn gold" onclick="applyStatements()">✓ Apply all to debt dashboard</button>
+        <button class="btn" onclick="clearStatements()">Discard</button>
+      </div>
+    </div>
+  </div>
   <div class="ai-st" id="ai-st"></div>
 </div>
 <div id="tab-entries" style="display:none">
-  <div class="btn-row" style="margin-bottom:12px"><button class="btn forest" onclick="openManual()">+ Manual Entry</button><button class="btn" onclick="exportEntriesCSV()" style="margin-left:auto">⬇ Export CSV</button></div>
+  <div class="btn-row" style="margin-bottom:12px">
+    <button class="btn forest" onclick="openManual()">+ Manual Entry</button>
+    <button class="btn" onclick="exportEntriesCSV()" style="margin-left:auto">⬇ Export CSV</button>
+    <label class="btn" style="cursor:pointer">⬆ Import CSV<input type="file" accept=".csv" style="display:none" onchange="importEntriesCSV(this)"></label>
+  </div>
   <div class="slbl" id="entries-lbl">Entries — Apr 2026</div>
   <div class="etable">
     <div class="ehdr"><span>Date</span><span>Project / Client</span><span>Type</span><span style="text-align:right">Amount</span><span></span></div>
@@ -886,6 +911,187 @@ function dlCSV(rows,filename){
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   a.download=filename;a.click();
+}
+// ── CC STATEMENT READER ──
+let pendingStatements=[];
+function stmtOv(e){e.preventDefault();document.getElementById('stmt-dz').classList.add('drag');}
+function stmtLv(){document.getElementById('stmt-dz').classList.remove('drag');}
+function stmtDp(e){e.preventDefault();stmtLv();handleStatements(e.dataTransfer.files);}
+function handleStatements(files){if(!files||!files.length)return;[...files].forEach(processStatement);}
+function setStmtSt(msg,state){
+  const el=document.getElementById('stmt-st');
+  el.textContent=msg;el.className='ai-st show'+(state==='done'?' done':state==='err'?' err':'');
+  if(state!=='loading')setTimeout(()=>el.classList.remove('show'),5000);
+}
+async function processStatement(file){
+  setStmtSt('Reading '+file.name+'…','loading');
+  document.getElementById('stmt-dz').classList.add('loading');
+  try{
+    const b64=await toB64(file);
+    const isImg=file.type.startsWith('image/');
+    const ct=isImg?'image':'document';
+    const mt=isImg?file.type:'application/pdf';
+    const prompt=`This is a credit card or loan statement. Extract the account details and return ONLY valid JSON:
+{
+  "lender": "e.g. Chase, AmEx, Chrysler Capital, B&H Payboo, Business Line of Credit",
+  "last4": "last 4 digits of account number if visible",
+  "newBalance": number,
+  "minimumDue": number,
+  "dueDate": "YYYY-MM-DD",
+  "apr": number or null,
+  "statementDate": "YYYY-MM-DD"
+}
+If you cannot determine a value, use null. Return ONLY the JSON object.`;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:[
+        {type:ct,source:{type:'base64',media_type:mt,data:b64}},
+        {type:'text',text:prompt}
+      ]}]})
+    });
+    const d=await res.json();
+    const raw=d.content?.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();
+    const p=JSON.parse(raw);
+    if(!p.newBalance){setStmtSt('Could not read balance from '+file.name,'err');return;}
+    // Try to match to a known debt account
+    const matched=matchDebtAccount(p);
+    pendingStatements.push({...p,matched,filename:file.name});
+    renderStatementResults();
+    setStmtSt('✓ Read '+file.name,'done');
+  }catch(err){setStmtSt('Error reading '+file.name+': '+err.message,'err');}
+  document.getElementById('stmt-dz').classList.remove('loading');
+}
+function matchDebtAccount(p){
+  const lender=(p.lender||'').toLowerCase();
+  const last4=p.last4||'';
+  // Try exact last4 match first
+  for(const d of DEBTS){
+    if(last4&&d.id.endsWith(last4))return d.id;
+  }
+  // Fuzzy lender match
+  if(lender.includes('chrysler'))return'chrysler';
+  if(lender.includes('b&h')||lender.includes('bh')||lender.includes('payboo'))return'bh';
+  if(lender.includes('amex')||lender.includes('american express')||lender.includes('marriott'))return'amex';
+  if(lender.includes('line of credit')||lender.includes('loc')||lender.includes('2001'))return'loc';
+  if(lender.includes('1661'))return'ch-1661';
+  if(lender.includes('8078'))return'ch-8078';
+  if(lender.includes('0522'))return'ch-0522';
+  if(lender.includes('7763'))return'ch-7763';
+  if(lender.includes('chase')||lender.includes('ink')){
+    // pick closest by balance
+    const chasePossible=['ch-1661','ch-8078','ch-0522','ch-7763'];
+    let best=null,bestDiff=Infinity;
+    chasePossible.forEach(id=>{
+      const diff=Math.abs((debts[id]?.balance||0)-p.newBalance);
+      if(diff<bestDiff){bestDiff=diff;best=id;}
+    });
+    return best;
+  }
+  return null;
+}
+function renderStatementResults(){
+  if(!pendingStatements.length)return;
+  document.getElementById('stmt-results').style.display='block';
+  const cards=document.getElementById('stmt-cards');
+  cards.innerHTML=pendingStatements.map((p,i)=>{
+    const d=p.matched?DEBTS.find(x=>x.id===p.matched):null;
+    const current=p.matched?fmt(debts[p.matched]?.balance||0):'—';
+    const diff=p.matched&&debts[p.matched]?(p.newBalance-(debts[p.matched]?.balance||0)):0;
+    const diffStr=diff===0?'no change':diff>0?`+${fmt(diff)}`:`-${fmt(Math.abs(diff))}`;
+    const diffColor=diff>0?'var(--red2)':diff<0?'#7ab890':'var(--t3)';
+    return`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+      <div style="flex:1;min-width:140px">
+        <div style="font-size:11px;font-weight:500;color:var(--t1)">${p.lender||'Unknown'}${p.last4?' ···'+p.last4:''}</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px">${p.filename}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">New balance</div>
+        <div style="font-family:var(--script);font-size:20px;font-style:italic;color:var(--red2)">${fmt(p.newBalance)}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Was</div>
+        <div style="font-size:13px;color:var(--t2)">${current}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Change</div>
+        <div style="font-size:13px;font-weight:500;color:${diffColor}">${diffStr}</div>
+      </div>
+      <div style="min-width:160px">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Apply to account</div>
+        <select id="stmt-match-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--t1);font-family:var(--sans);font-size:11px;padding:5px 8px;border-radius:5px;width:100%;outline:none">
+          <option value="">— skip this one —</option>
+          ${DEBTS.map(d=>`<option value="${d.id}"${p.matched===d.id?' selected':''}>${d.name}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+  }).join('');
+}
+function applyStatements(){
+  pendingStatements.forEach((p,i)=>{
+    const sel=document.getElementById('stmt-match-'+i);
+    const id=sel?sel.value:'';
+    if(!id||!debts[id])return;
+    debts[id].balance=p.newBalance;
+    if(p.minimumDue)debts[id].min=p.minimumDue;
+    if(p.apr)DEBTS.find(x=>x.id===id).apr=p.apr;
+  });
+  lsSet('ac_debts',debts);
+  snapshotDebt();
+  renderDebtGrid();renderStats();renderDebtChart();renderProjector();renderCashPosition();
+  clearStatements();
+  setStmtSt('✓ Debt dashboard updated!','done');
+}
+function clearStatements(){
+  pendingStatements=[];
+  document.getElementById('stmt-results').style.display='none';
+  document.getElementById('stmt-cards').innerHTML='';
+}
+function importEntriesCSV(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const lines=e.target.result.split('\n').filter(l=>l.trim());
+    let count=0;
+    lines.slice(1).forEach(line=>{
+      const cols=line.match(/(".*?"|[^,]+)(?=,|$)/g)||[];
+      const clean=cols.map(c=>c.replace(/^"|"$/g,'').replace(/""/g,'"').trim());
+      const [date,month,project,type,amount,notes]=clean;
+      if(!date||!project||!amount)return;
+      const m=date.slice(0,7);
+      if(!data[m])data[m]=[];
+      if(!data[m].find(x=>x.date===date&&x.project===project&&Number(x.amount)===Number(amount))){
+        data[m].push({id:'imp_'+uid(),date,project,type:type||'income',amount:Number(amount)||0,notes:notes||''});
+        lsSet('ac_e_'+m,data[m]);
+        count++;
+      }
+    });
+    buildMonthSel();renderEntries();renderCashPosition();
+    alert('✓ Imported '+count+' entries. Duplicates skipped.');
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+function importPipelineCSV(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const lines=e.target.result.split('\n').filter(l=>l.trim());
+    let count=0;
+    lines.slice(1).forEach(line=>{
+      const cols=line.match(/(".*?"|[^,]+)(?=,|$)/g)||[];
+      const clean=cols.map(c=>c.replace(/^"|"$/g,'').replace(/""/g,'"').trim());
+      const [project,client,amount,invDate,dueDate,status]=clean;
+      if(!project||!amount)return;
+      if(!pipeline.find(p=>p.project===project&&Number(p.amount)===Number(amount))){
+        pipeline.push({id:'imp_'+uid(),project,client:client||'',amount:Number(amount)||0,invDate:invDate||'',dueDate:dueDate||'',status:status||'invoiced'});
+        count++;
+      }
+    });
+    lsSet('ac_pipe',pipeline);renderPipeline();renderStats();
+    alert('✓ Imported '+count+' pipeline items. Duplicates skipped.');
+  };
+  reader.readAsText(file);
+  input.value='';
 }
 init();
 </script>
