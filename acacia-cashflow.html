@@ -775,7 +775,7 @@ async function processFile(file){
   try{
     const b64=await toB64(file);const isImg=file.type.startsWith('image/');
     const ct=isImg?'image':'document';const mt=isImg?file.type:'application/pdf';
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:[{type:ct,source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:'Extract payment details. Return ONLY valid JSON: {"date":"YYYY-MM-DD","project":"payer name","amount":number,"type":"income","notes":"brief"}. If debt payment use type "payment". If unreadable {"error":"reason"}.'}]}]})});
+    const res=await fetch('https://delicate-unit-8ab7.cam-381.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:[{type:ct,source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:'Extract payment details. Return ONLY valid JSON: {"date":"YYYY-MM-DD","project":"payer name","amount":number,"type":"income","notes":"brief"}. If debt payment use type "payment". If unreadable {"error":"reason"}.'}]}]})});
     const d=await res.json();const raw=d.content?.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();const p=JSON.parse(raw);
     if(p.error){setSt('Could not read: '+p.error,'err');return;}
     if(!p.date)p.date=curMonth+'-01';
@@ -787,7 +787,7 @@ async function doPaste(){
   const txt=document.getElementById('paste-box').value.trim();if(!txt)return;
   document.getElementById('paste-btn').disabled=true;setSt('Reading…','loading');
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:'Extract payment info, return ONLY JSON: {"date":"YYYY-MM-DD","project":"client","amount":number,"type":"income or payment","notes":"brief"}. Text: '+txt}]})});
+    const res=await fetch('https://delicate-unit-8ab7.cam-381.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:'Extract payment info, return ONLY JSON: {"date":"YYYY-MM-DD","project":"client","amount":number,"type":"income or payment","notes":"brief"}. Text: '+txt}]})});
     const d=await res.json();const raw=d.content?.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();const p=JSON.parse(raw);
     if(!p.date)p.date=curMonth+'-01';addEntry({...p,id:uid()});document.getElementById('paste-box').value='';showTab('entries');setSt('✓ Added: '+p.project+' — '+fmt(p.amount),'done');
   }catch(err){setSt('Error: '+err.message,'err');}
@@ -942,7 +942,7 @@ async function processStatement(file){
   "statementDate": "YYYY-MM-DD"
 }
 If you cannot determine a value, use null. Return ONLY the JSON object.`;
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch('https://delicate-unit-8ab7.cam-381.workers.dev',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:[
         {type:ct,source:{type:'base64',media_type:mt,data:b64}},
