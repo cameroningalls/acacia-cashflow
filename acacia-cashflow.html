@@ -130,7 +130,8 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
     <span class="hdr-sub">Productions</span>
   </div>
   <div class="hdr-divider" style="margin-left:20px">Cash Flow Dashboard</div>
-  <div class="hdr-right">
+  <div class="hdr-right" style="display:flex;align-items:center;gap:12px">
+    <button onclick="clearApiKey()" style="background:none;border:1px solid rgba(184,133,44,.3);color:var(--sage);font-family:var(--sans);font-size:9px;letter-spacing:.08em;padding:5px 10px;border-radius:4px;cursor:pointer;text-transform:uppercase">API Key</button>
     <select class="month-sel" id="month-sel" onchange="switchMonth(this.value)"></select>
   </div>
 </div>
@@ -179,12 +180,12 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
     <div class="stat"><div class="stat-lbl">Min Due This Cycle</div><div class="stat-val gold" id="s-min">—</div><div class="stat-hint">autopay active on most</div></div>
     <div class="stat"><div class="stat-lbl">Projected Receivable</div><div class="stat-val forest" id="s-proj">—</div><div class="stat-hint">invoiced + anticipated</div></div>
   </div>
-  <div class="alert">⚠️ <span><strong>B&amp;H Payboo:</strong> $965 deferred balance must be paid in full by Aug 13, 2026 or 35.99% APR backdates to purchase date.</span></div>
+  <div class="alert">⚠️ <span><strong>B&amp;H Payboo — two deferred plans:</strong> $644 must be paid in full by <strong>Aug 13, 2026</strong> or 35.99% APR backdates ($509 accrued). Second plan: $1,194.45 due by <strong>Feb 27, 2027</strong> ($81 accrued). Pay more than the $65 minimum to clear these in time.</span></div>
   <div class="strategy">
     <h3>Avalanche Strategy — Attack Highest APR First</h3>
     <p>Pay minimums on everything. Every extra dollar goes to the highest-APR balance first, then roll to the next when paid off.</p>
     <div class="av-pills">
-      <span class="av-pill hot">1 · B&amp;H 35.99%</span><span class="av-pill hot">2 · AmEx 28.24%</span><span class="av-pill mid">3 · ...0522 22.74%</span><span class="av-pill mid">4 · ...8078 19.49%</span><span class="av-pill mid">5 · ...1661 16.74%</span><span class="av-pill cool">6 · LOC 12.40%</span><span class="av-pill cool">7 · Chrysler 7.48%</span>
+      <span class="av-pill hot">1 · B&amp;H 35.99%</span><span class="av-pill hot">2 · ...0522 22.74%</span><span class="av-pill mid">3 · ...8078 19.49%</span><span class="av-pill mid">4 · ...1661 16.74%</span><span class="av-pill cool">5 · LOC 12.40%</span><span class="av-pill cool">6 · Chrysler 7.48%</span>
     </div>
   </div>
   <div class="slbl">Accounts — click any to log a payment</div>
@@ -384,7 +385,7 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
 const GOAL=35000;
 let curMonth='2026-04';
 let expenses={};
-const DEBTS=[{id:'bh',name:'B&H Payboo ...8851',balance:2238.45,min:79,due:'Mar 27',apr:35.99,ac:'high'},{id:'amex',name:'AmEx Marriott ...91005',balance:125,min:35,due:'Apr 13',apr:28.24,ac:'high'},{id:'ch-0522',name:'Ink Unlimited ...0522',balance:951.59,min:40,due:'Apr 28',apr:22.74,ac:'high'},{id:'ch-8078',name:'Ink Preferred ...8078',balance:32248.42,min:810,due:'Apr 15',apr:19.49,ac:'mid'},{id:'ch-1661',name:'Ink Biz Cash ...1661',balance:3005.10,min:86,due:'May 7',apr:16.74,ac:'mid'},{id:'loc',name:'Bus Credit Line ...2001',balance:80631.22,min:1631.47,due:'May 1',apr:12.40,ac:'cool'},{id:'chrysler',name:'Chrysler Capital',balance:4710.76,min:960.88,due:'May 6',apr:7.48,ac:'cool'},{id:'ch-7763',name:'Personal CCard ...7763',balance:192.33,min:40,due:'May 12',apr:0,ac:'none'}];
+const DEBTS=[{id:'bh',name:'B&H Payboo ...8851',balance:1838.45,min:65,due:'May 27',apr:35.99,ac:'high'},{id:'ch-0522',name:'Ink Unlimited ...0522',balance:743.16,min:40,due:'May 28',apr:22.74,ac:'high'},{id:'ch-8078',name:'Ink Preferred ...8078',balance:31973.53,min:854,due:'May 15',apr:19.49,ac:'mid'},{id:'ch-1661',name:'Ink Biz Cash ...1661',balance:3322.03,min:78,due:'Jun 7',apr:16.74,ac:'mid'},{id:'loc',name:'Bus Credit Line ...2001',balance:79479.26,min:1634.35,due:'Jun 1',apr:12.40,ac:'cool'},{id:'chrysler',name:'Chrysler Capital',balance:3778.85,min:960.88,due:'Jun 6',apr:7.48,ac:'cool'}];
 const SEED_E={'2026-02':[{id:'s1',date:'2026-02-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3167'},{id:'s2',date:'2026-02-13',project:'County of SLO — Dairy Creek',type:'income',amount:4292,notes:'Check #3101536'},{id:'s3',date:'2026-02-20',project:'City of El Paso de Robles (PRPD)',type:'income',amount:1400,notes:'Check #81829'}],'2026-03':[{id:'s4',date:'2026-03-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3171'},{id:'s5',date:'2026-03-13',project:'City of Paso — PRPD Annual Report',type:'income',amount:13600,notes:'Check #82338'}],'2026-04':[{id:'s6',date:'2026-04-03',project:'SLO Country Club (Jessica Maguire)',type:'income',amount:7392,notes:'HoneyBook Invoice #000360-002'}]};
 const SEED_P=[{id:'p1',project:'SCGC Monthly Retainer',client:'SCGC',amount:1699,invDate:'2026-04-01',dueDate:'2026-04-29',status:'invoiced'},{id:'p2',project:'Cal Poly Golf',client:'Cal Poly',amount:3000,invDate:'',dueDate:'2026-05-01',status:'pending'},{id:'p3',project:'SLO Country Club',client:'SLO CC',amount:7177,invDate:'2026-04-01',dueDate:'2026-04-15',status:'invoiced'},{id:'p4',project:'Idlers Spots — Deposit',client:'Idlers',amount:2250,invDate:'',dueDate:'2026-04-30',status:'pending'},{id:'p5',project:'M&A — Stanislaus',client:'M&A',amount:2000,invDate:'',dueDate:'2026-05-15',status:'pending'}];
 let data={},debts={},pipeline=[],debtPayId=null,pipeFilter='month';
@@ -408,6 +409,16 @@ function buildMonthSel(){
 }
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function getApiKey(){
+  let k=localStorage.getItem('ac_api_key');
+  if(!k){
+    k=prompt('Enter your Anthropic API key to use AI features (starts with sk-ant-).\n\nGet one free at console.anthropic.com → API Keys.\n\nIt will be stored only in this browser.');
+    if(k&&k.trim().startsWith('sk-ant')){localStorage.setItem('ac_api_key',k.trim());return k.trim();}
+    else{alert('API key not saved. AI features will not work until a valid key is entered.');return null;}
+  }
+  return k;
+}
+function clearApiKey(){localStorage.removeItem('ac_api_key');alert('API key cleared. You will be prompted again next time you use an AI feature.');}
 function init(){
   const sd=lsGet('ac_debts');debts=sd||{};DEBTS.forEach(x=>{if(!debts[x.id])debts[x.id]={...x,paid:0};});
   const months=genMonths();
@@ -771,11 +782,12 @@ function dzLv(){document.getElementById('dz').classList.remove('drag');}
 function dzDp(e){e.preventDefault();dzLv();handleFiles(e.dataTransfer.files);}
 function handleFiles(files){if(!files||!files.length)return;[...files].forEach(processFile);}
 async function processFile(file){
+  const apiKey=getApiKey();if(!apiKey){document.getElementById('dz').classList.remove('loading');return;}
   setSt('Reading '+file.name+'…','loading');document.getElementById('dz').classList.add('loading');
   try{
     const b64=await toB64(file);const isImg=file.type.startsWith('image/');
     const ct=isImg?'image':'document';const mt=isImg?file.type:'application/pdf';
-    const res=await fetch('https://delicate-unit-8ab7.cam-381.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:[{type:ct,source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:'Extract payment details. Return ONLY valid JSON: {"date":"YYYY-MM-DD","project":"payer name","amount":number,"type":"income","notes":"brief"}. If debt payment use type "payment". If unreadable {"error":"reason"}.'}]}]})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:[{type:ct,source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:'Extract payment details. Return ONLY valid JSON: {"date":"YYYY-MM-DD","project":"payer name","amount":number,"type":"income","notes":"brief"}. If debt payment use type "payment". If unreadable {"error":"reason"}.'}]}]})});
     const d=await res.json();const raw=d.content?.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();const p=JSON.parse(raw);
     if(p.error){setSt('Could not read: '+p.error,'err');return;}
     if(!p.date)p.date=curMonth+'-01';
@@ -785,9 +797,10 @@ async function processFile(file){
 }
 async function doPaste(){
   const txt=document.getElementById('paste-box').value.trim();if(!txt)return;
+  const apiKey=getApiKey();if(!apiKey)return;
   document.getElementById('paste-btn').disabled=true;setSt('Reading…','loading');
   try{
-    const res=await fetch('https://delicate-unit-8ab7.cam-381.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:'Extract payment info, return ONLY JSON: {"date":"YYYY-MM-DD","project":"client","amount":number,"type":"income or payment","notes":"brief"}. Text: '+txt}]})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:'Extract payment info, return ONLY JSON: {"date":"YYYY-MM-DD","project":"client","amount":number,"type":"income or payment","notes":"brief"}. Text: '+txt}]})});
     const d=await res.json();const raw=d.content?.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();const p=JSON.parse(raw);
     if(!p.date)p.date=curMonth+'-01';addEntry({...p,id:uid()});document.getElementById('paste-box').value='';showTab('entries');setSt('✓ Added: '+p.project+' — '+fmt(p.amount),'done');
   }catch(err){setSt('Error: '+err.message,'err');}
@@ -942,8 +955,9 @@ async function processStatement(file){
   "statementDate": "YYYY-MM-DD"
 }
 If you cannot determine a value, use null. Return ONLY the JSON object.`;
-    const res=await fetch('https://delicate-unit-8ab7.cam-381.workers.dev',{
-      method:'POST',headers:{'Content-Type':'application/json'},
+    const _key=getApiKey();if(!_key)return;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':_key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:[
         {type:ct,source:{type:'base64',media_type:mt,data:b64}},
         {type:'text',text:prompt}
@@ -970,16 +984,14 @@ function matchDebtAccount(p){
   }
   // Fuzzy lender match
   if(lender.includes('chrysler'))return'chrysler';
-  if(lender.includes('b&h')||lender.includes('bh')||lender.includes('payboo'))return'bh';
-  if(lender.includes('amex')||lender.includes('american express')||lender.includes('marriott'))return'amex';
+  if(lender.includes('b&h')||lender.includes('bh')||lender.includes('payboo')||lender.includes('8851'))return'bh';
   if(lender.includes('line of credit')||lender.includes('loc')||lender.includes('2001'))return'loc';
   if(lender.includes('1661'))return'ch-1661';
   if(lender.includes('8078'))return'ch-8078';
   if(lender.includes('0522'))return'ch-0522';
-  if(lender.includes('7763'))return'ch-7763';
   if(lender.includes('chase')||lender.includes('ink')){
     // pick closest by balance
-    const chasePossible=['ch-1661','ch-8078','ch-0522','ch-7763'];
+    const chasePossible=['ch-1661','ch-8078','ch-0522'];
     let best=null,bestDiff=Infinity;
     chasePossible.forEach(id=>{
       const diff=Math.abs((debts[id]?.balance||0)-p.newBalance);
