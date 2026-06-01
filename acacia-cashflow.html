@@ -359,7 +359,7 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 const GOAL=35000;
-let curMonth='2026-04';
+let curMonth=new Date().toISOString().slice(0,7);
 let expenses={};
 const DEBTS=[{id:'bh',name:'B&H Payboo ...8851',balance:1838.45,min:65,due:'May 27',apr:35.99,ac:'high'},{id:'ch-0522',name:'Ink Unlimited ...0522',balance:743.16,min:40,due:'May 28',apr:22.74,ac:'high'},{id:'ch-8078',name:'Ink Preferred ...8078',balance:31973.53,min:854,due:'May 15',apr:19.49,ac:'mid'},{id:'ch-1661',name:'Ink Biz Cash ...1661',balance:3322.03,min:78,due:'Jun 7',apr:16.74,ac:'mid'},{id:'loc',name:'Bus Credit Line ...2001',balance:79479.26,min:1634.35,due:'Jun 1',apr:12.40,ac:'cool'},{id:'chrysler',name:'Chrysler Capital',balance:3778.85,min:960.88,due:'Jun 6',apr:7.48,ac:'cool'}];
 const SEED_E={'2026-02':[{id:'s1',date:'2026-02-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3167'},{id:'s2',date:'2026-02-13',project:'County of SLO — Dairy Creek',type:'income',amount:4292,notes:'Check #3101536'},{id:'s3',date:'2026-02-20',project:'City of El Paso de Robles (PRPD)',type:'income',amount:1400,notes:'Check #81829'}],'2026-03':[{id:'s4',date:'2026-03-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3171'},{id:'s5',date:'2026-03-13',project:'City of Paso — PRPD Annual Report',type:'income',amount:13600,notes:'Check #82338'}],'2026-04':[{id:'s6',date:'2026-04-03',project:'SLO Country Club (Jessica Maguire)',type:'income',amount:7392,notes:'HoneyBook Invoice #000360-002'}]};
