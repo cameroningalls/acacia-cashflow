@@ -172,7 +172,7 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
   <div class="tab" onclick="showTab('log')">Log Income</div>
   <div class="tab" onclick="showTab('expenses')">Expenses</div>
   <div class="tab" onclick="showTab('entries')">Entries</div>
-  <div class="tab" onclick="showTab('phone')">📱</div>
+  
 </div>
 <div id="tab-debt">
   <div class="stats-row">
@@ -303,35 +303,6 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
   </div>
 </div>
 <!-- PHONE TAB -->
-<div id="tab-phone" style="display:none">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:24px;max-width:480px;margin:0 auto">
-    <div style="font-family:var(--script);font-size:28px;font-style:italic;color:var(--gold);margin-bottom:4px">Add to your home screen</div>
-    <div style="font-size:11px;color:var(--t3);margin-bottom:20px;letter-spacing:.04em">One tap to open Acacia Cash Flow from your iPhone</div>
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div style="display:flex;gap:14px;align-items:flex-start">
-        <div style="background:var(--gold);color:#0a1a04;font-family:var(--script);font-size:18px;font-style:italic;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
-        <div><div style="font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px">Open in Safari</div><div style="font-size:11px;color:var(--t3)">This only works in Safari, not Chrome. Go to:<br><span style="color:var(--gold);font-family:var(--mono,monospace);font-size:10px">cameroningalls.github.io/acacia-cashflow/acacia-cashflow.html</span></div></div>
-      </div>
-      <div style="display:flex;gap:14px;align-items:flex-start">
-        <div style="background:var(--gold);color:#0a1a04;font-family:var(--script);font-size:18px;font-style:italic;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
-        <div><div style="font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px">Tap the Share button</div><div style="font-size:11px;color:var(--t3)">The box with an arrow pointing up — at the bottom of the screen in Safari.</div></div>
-      </div>
-      <div style="display:flex;gap:14px;align-items:flex-start">
-        <div style="background:var(--gold);color:#0a1a04;font-family:var(--script);font-size:18px;font-style:italic;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
-        <div><div style="font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px">Tap "Add to Home Screen"</div><div style="font-size:11px;color:var(--t3)">Scroll down in the share sheet. Name it "Acacia Cash Flow" and tap Add.</div></div>
-      </div>
-      <div style="display:flex;gap:14px;align-items:flex-start">
-        <div style="background:var(--gold);color:#0a1a04;font-family:var(--script);font-size:18px;font-style:italic;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
-        <div><div style="font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px">Done — it's on your home screen</div><div style="font-size:11px;color:var(--t3)">Opens full screen like an app. Your data saves between sessions.</div></div>
-      </div>
-    </div>
-    <div style="margin-top:20px;padding:12px 16px;background:var(--surface2);border-radius:6px;font-size:10px;color:var(--t3);line-height:1.6">
-      <strong style="color:var(--t2)">Note on data:</strong> Your entries, pipeline, and debt data live in your browser's localStorage — they're tied to the browser you use. Safari on iPhone will have its own separate storage from Chrome on your Mac. Use the ⬇ Export CSV buttons to back up and transfer data between devices.
-    </div>
-  </div>
-</div>
-</div>
-</div>
 
 <div class="modal-bg" id="modal">
   <div class="modal">
@@ -463,7 +434,8 @@ function renderDebtChart(){
   const snaps=lsGet('ac_debt_snaps')||{};
   // Seed Apr 2026 with current total if not yet snapshotted
   const currentTotal=totalDebtNow();
-  if(!snaps['2026-04']) snaps['2026-04']=currentTotal;
+  if(!snaps['2026-04']) snaps['2026-04']=121135.28;
+  if(!snaps[curMonth]) {snaps[curMonth]=currentTotal; lsSet('ac_debt_snaps',snaps);}
   const vals=CHART_MONTHS.map(m=>snaps[m]!=null?snaps[m]:null);
   const ctx=document.getElementById('debt-chart');
   if(!ctx)return;
@@ -776,7 +748,6 @@ function switchMonth(m){
   if(!expenses[curMonth])expenses[curMonth]=[];
   renderEntries();renderPipeline();renderExpenses();renderCashPosition();
 }
-function showTab(t){['debt','pipeline','log','entries'].forEach((x,i)=>{document.getElementById('tab-'+x).style.display=x===t?'block':'none';document.querySelectorAll('.tab')[i].className='tab'+(x===t?' active':'');});}
 function dzOv(e){e.preventDefault();document.getElementById('dz').classList.add('drag');}
 function dzLv(){document.getElementById('dz').classList.remove('drag');}
 function dzDp(e){e.preventDefault();dzLv();handleFiles(e.dataTransfer.files);}
