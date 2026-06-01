@@ -230,6 +230,11 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
       <div style="font-family:var(--script);font-size:22px;font-style:italic;color:var(--red2)" id="exp-total">$0</div>
     </div>
   </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px 20px;margin-bottom:14px">
+    <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:12px">Monthly spending — all categories</div>
+    <canvas id="spend-chart" height="90"></canvas>
+    <div style="font-size:9px;color:var(--t3);margin-top:8px;text-align:center;letter-spacing:.04em">Drop CC statements in Log Income tab to auto-populate</div>
+  </div>
   <div class="slbl" id="exp-lbl">Expenses — Apr 2026</div>
   <div class="etable">
     <div class="ehdr" style="grid-template-columns:65px 1fr 100px 90px 30px"><span>Date</span><span>Description</span><span>Category</span><span style="text-align:right">Amount</span><span></span></div>
@@ -432,10 +437,10 @@ function snapshotDebt(){
 }
 function renderDebtChart(){
   const snaps=lsGet('ac_debt_snaps')||{};
-  // Seed Apr 2026 with current total if not yet snapshotted
-  const currentTotal=totalDebtNow();
-  if(!snaps['2026-04']) snaps['2026-04']=121135.28;
-  if(!snaps[curMonth]) {snaps[curMonth]=currentTotal; lsSet('ac_debt_snaps',snaps);}
+  // Always seed Apr/May with real statement values (these are facts, not user-entered)
+  snaps['2026-04']=123685;
+  if(!snaps['2026-05']||snaps['2026-05']===121135.28) snaps['2026-05']=totalDebtNow();
+  lsSet('ac_debt_snaps',snaps);
   const vals=CHART_MONTHS.map(m=>snaps[m]!=null?snaps[m]:null);
   const ctx=document.getElementById('debt-chart');
   if(!ctx)return;
@@ -462,11 +467,11 @@ function renderDebtChart(){
         borderWidth:2,
         pointBackgroundColor:gold,
         pointBorderColor:gold,
-        pointRadius:display.map((v,i)=>v!=null&&(i===0||display[i-1]==null||display[i]!==display[i-1])?4:2),
+        pointRadius:display.map((v,i)=>v!=null?4:0),
         pointHoverRadius:6,
         fill:true,
-        tension:0.3,
-        spanGaps:false,
+        tension:0.2,
+        spanGaps:true,
       }]
     },
     options:{
@@ -495,6 +500,8 @@ function renderDebtChart(){
           ticks:{color:'#6a6860',font:{family:"'Montserrat',sans-serif",size:9},maxRotation:0}
         },
         y:{
+          min:100000,
+          max:130000,
           grid:{color:'rgba(255,255,255,0.04)'},
           ticks:{color:'#6a6860',font:{family:"'Montserrat',sans-serif",size:9},callback:v=>'$'+Math.round(v/1000)+'k'},
           reverse:false
@@ -587,9 +594,40 @@ function renderProjector(){
 }
 
 // ── EXPENSES ──
+let spendChart=null;
+function renderSpendChart(){
+  const ctx=document.getElementById('spend-chart');if(!ctx)return;
+  const months=CHART_MONTHS.filter(m=>m<=curMonth);
+  const labels=months.map(m=>MO_NAMES[parseInt(m.split('-')[1])-1]);
+  const totals=months.map(m=>(expenses[m]||[]).reduce((s,e)=>s+Number(e.amount),0));
+  if(spendChart){spendChart.destroy();spendChart=null;}
+  spendChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        label:'Spending',
+        data:totals,
+        backgroundColor:'rgba(200,120,32,0.7)',
+        borderColor:'#c87820',
+        borderWidth:1,
+        borderRadius:3,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e1e1b',borderColor:'#3d4438',borderWidth:1,titleColor:'#b8b4a8',bodyColor:'#c87820',callbacks:{label:c=>' '+fmt(c.parsed.y),title:c=>c[0].label+' 2026'}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6a6860',font:{family:"'Montserrat',sans-serif",size:9},maxRotation:0}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6a6860',font:{family:"'Montserrat',sans-serif",size:9},callback:v=>'$'+Math.round(v/1000)+'k'},beginAtZero:true}
+      }
+    }
+  });
+}
 function renderExpenses(){
   const ex=expenses[curMonth]||[];
   document.getElementById('exp-lbl').textContent='Expenses — '+mKey(curMonth);
+  renderSpendChart();
   const payroll=ex.filter(e=>e.cat==='payroll').reduce((s,e)=>s+Number(e.amount),0);
   const other=ex.filter(e=>e.cat!=='payroll').reduce((s,e)=>s+Number(e.amount),0);
   document.getElementById('exp-payroll').textContent=fmt(payroll);
@@ -915,7 +953,7 @@ async function processStatement(file){
     const isImg=file.type.startsWith('image/');
     const ct=isImg?'image':'document';
     const mt=isImg?file.type:'application/pdf';
-    const prompt=`This is a credit card or loan statement. Extract the account details and return ONLY valid JSON:
+    const prompt=`This is a credit card, loan, or bank statement. Extract the account details AND all individual transactions/purchases. Return ONLY valid JSON:
 {
   "lender": "e.g. Chase, AmEx, Chrysler Capital, B&H Payboo, Business Line of Credit",
   "last4": "last 4 digits of account number if visible",
@@ -923,9 +961,12 @@ async function processStatement(file){
   "minimumDue": number,
   "dueDate": "YYYY-MM-DD",
   "apr": number or null,
-  "statementDate": "YYYY-MM-DD"
+  "statementDate": "YYYY-MM-DD",
+  "transactions": [
+    {"date": "YYYY-MM-DD", "description": "merchant/payee name", "amount": number, "type": "expense or payment or income"}
+  ]
 }
-If you cannot determine a value, use null. Return ONLY the JSON object.`;
+For transactions: include ALL purchases and payments. Exclude interest charges and fees. type is "expense" for purchases/spending, "payment" for payments made to this account, "income" for deposits/credits received. If you cannot determine a value use null. Return ONLY the JSON object.`;
     const _key=getApiKey();if(!_key)return;
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':_key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
@@ -1010,19 +1051,36 @@ function renderStatementResults(){
   }).join('');
 }
 function applyStatements(){
+  let expenseCount=0;
   pendingStatements.forEach((p,i)=>{
     const sel=document.getElementById('stmt-match-'+i);
     const id=sel?sel.value:'';
-    if(!id||!debts[id])return;
-    debts[id].balance=p.newBalance;
-    if(p.minimumDue)debts[id].min=p.minimumDue;
-    if(p.apr)DEBTS.find(x=>x.id===id).apr=p.apr;
+    if(id&&debts[id]){
+      debts[id].balance=p.newBalance;
+      if(p.minimumDue)debts[id].min=p.minimumDue;
+      if(p.apr)DEBTS.find(x=>x.id===id).apr=p.apr;
+    }
+    // Import transactions into expenses
+    if(p.transactions&&p.transactions.length){
+      p.transactions.forEach(tx=>{
+        if(!tx.date||!tx.amount||tx.type!=='expense')return;
+        const month=tx.date.slice(0,7);
+        if(!expenses[month])expenses[month]=[];
+        // Skip duplicates
+        const dup=expenses[month].find(e=>e.date===tx.date&&e.desc===tx.description&&Number(e.amount)===Number(tx.amount));
+        if(!dup){
+          expenses[month].push({id:'stmt_'+uid(),date:tx.date,desc:tx.description,amount:Number(tx.amount),cat:'other',notes:'Auto-imported from statement'});
+          lsSet('ac_ex_'+month,expenses[month]);
+          expenseCount++;
+        }
+      });
+    }
   });
   lsSet('ac_debts',debts);
   snapshotDebt();
-  renderDebtGrid();renderStats();renderDebtChart();renderProjector();renderCashPosition();
+  renderDebtGrid();renderStats();renderDebtChart();renderProjector();renderCashPosition();renderExpenses();
   clearStatements();
-  setStmtSt('✓ Debt dashboard updated!','done');
+  setStmtSt('✓ Updated! Balances saved'+(expenseCount>0?' · '+expenseCount+' transactions imported to Expenses':''),'done');
 }
 function clearStatements(){
   pendingStatements=[];
