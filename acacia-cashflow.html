@@ -796,8 +796,8 @@ async function processFile(file){
   try{
     const b64=await toB64(file);const isImg=file.type.startsWith('image/');
     const ct=isImg?'image':'document';const mt=isImg?file.type:'application/pdf';
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:[{type:ct,source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:'Extract payment details. Return ONLY valid JSON: {"date":"YYYY-MM-DD","project":"payer name","amount":number,"type":"income","notes":"brief"}. If debt payment use type "payment". If unreadable {"error":"reason"}.'}]}]})});
-    const d=await res.json();const raw=d.content?.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();const p=JSON.parse(raw);
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:300,messages:[{role:'user',content:[{type:ct,source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:'Extract payment details. Return ONLY valid JSON: {"date":"YYYY-MM-DD","project":"payer name","amount":number,"type":"income","notes":"brief"}. If debt payment use type "payment". If unreadable {"error":"reason"}.'}]}]})});
+    const d=await res.json();if(!res.ok||d.error)throw new Error((d.error&&d.error.message)||('API error '+res.status));const raw=d.content?.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();const p=JSON.parse(raw);
     if(p.error){setSt('Could not read: '+p.error,'err');return;}
     if(!p.date)p.date=curMonth+'-01';
     addEntry({...p,id:uid()});showTab('entries');setSt('✓ Added: '+p.project+' — '+fmt(p.amount),'done');
@@ -809,8 +809,8 @@ async function doPaste(){
   const apiKey=getApiKey();if(!apiKey)return;
   document.getElementById('paste-btn').disabled=true;setSt('Reading…','loading');
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:'Extract payment info, return ONLY JSON: {"date":"YYYY-MM-DD","project":"client","amount":number,"type":"income or payment","notes":"brief"}. Text: '+txt}]})});
-    const d=await res.json();const raw=d.content?.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();const p=JSON.parse(raw);
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:300,messages:[{role:'user',content:'Extract payment info, return ONLY JSON: {"date":"YYYY-MM-DD","project":"client","amount":number,"type":"income or payment","notes":"brief"}. Text: '+txt}]})});
+    const d=await res.json();if(!res.ok||d.error)throw new Error((d.error&&d.error.message)||('API error '+res.status));const raw=d.content?.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();const p=JSON.parse(raw);
     if(!p.date)p.date=curMonth+'-01';addEntry({...p,id:uid()});document.getElementById('paste-box').value='';showTab('entries');setSt('✓ Added: '+p.project+' — '+fmt(p.amount),'done');
   }catch(err){setSt('Error: '+err.message,'err');}
   document.getElementById('paste-btn').disabled=false;
@@ -967,18 +967,18 @@ async function processStatement(file){
   ]
 }
 For transactions: include ALL purchases and payments. Exclude interest charges and fees. type is "expense" for purchases/spending, "payment" for payments made to this account, "income" for deposits/credits received. If you cannot determine a value use null. Return ONLY the JSON object.`;
-    const _key=getApiKey();if(!_key)return;
+    const _key=getApiKey();if(!_key){document.getElementById('stmt-dz').classList.remove('loading');setStmtSt('No API key entered','err');return;}
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':_key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:[
+      body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:8000,messages:[{role:'user',content:[
         {type:ct,source:{type:'base64',media_type:mt,data:b64}},
         {type:'text',text:prompt}
       ]}]})
     });
-    const d=await res.json();
+    const d=await res.json();if(!res.ok||d.error)throw new Error((d.error&&d.error.message)||('API error '+res.status));
     const raw=d.content?.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();
     const p=JSON.parse(raw);
-    if(!p.newBalance){setStmtSt('Could not read balance from '+file.name,'err');return;}
+    if(p.newBalance==null){setStmtSt('Could not read balance from '+file.name,'err');document.getElementById('stmt-dz').classList.remove('loading');return;}
     // Try to match to a known debt account
     const matched=matchDebtAccount(p);
     pendingStatements.push({...p,matched,filename:file.name});
