@@ -361,7 +361,7 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
 const GOAL=35000;
 let curMonth=new Date().toISOString().slice(0,7);
 let expenses={};
-const DEBTS=[{id:'bh',name:'B&H Payboo ...8851',balance:1838.45,min:65,due:'May 27',apr:35.99,ac:'high'},{id:'ch-0522',name:'Ink Unlimited ...0522',balance:743.16,min:40,due:'May 28',apr:22.74,ac:'high'},{id:'ch-8078',name:'Ink Preferred ...8078',balance:31973.53,min:854,due:'May 15',apr:19.49,ac:'mid'},{id:'ch-1661',name:'Ink Biz Cash ...1661',balance:3322.03,min:78,due:'Jun 7',apr:16.74,ac:'mid'},{id:'loc',name:'Bus Credit Line ...2001',balance:79479.26,min:1634.35,due:'Jun 1',apr:12.40,ac:'cool'},{id:'chrysler',name:'Chrysler Capital',balance:3778.85,min:960.88,due:'Jun 6',apr:7.48,ac:'cool'}];
+const DEBTS=[{id:'bh',name:'B&H Payboo ...8851',balance:1838.45,min:65,due:'May 27',apr:35.99,ac:'high'},{id:'ch-0522',name:'Ink Unlimited ...0522',balance:743.16,min:40,due:'May 28',apr:22.74,ac:'high'},{id:'ch-8078',name:'Ink Preferred ...8078',balance:31973.53,min:854,due:'May 15',apr:19.49,ac:'mid'},{id:'ch-1661',name:'Ink Biz Cash ...1661',balance:3322.03,min:78,due:'Jun 7',apr:16.74,ac:'mid'},{id:'loc',name:'Bus Credit Line ...2001',balance:79479.26,min:1634.35,due:'Jun 1',apr:12.40,ac:'cool'},{id:'amex',name:'AmEx Marriott ...91005',balance:448.20,min:35,due:'Nov 13',apr:28.49,ac:'high'},{id:'chrysler',name:'Chrysler Capital',balance:3778.85,min:960.88,due:'Jun 6',apr:7.48,ac:'cool'}];
 const SEED_E={'2026-02':[{id:'s1',date:'2026-02-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3167'},{id:'s2',date:'2026-02-13',project:'County of SLO — Dairy Creek',type:'income',amount:4292,notes:'Check #3101536'},{id:'s3',date:'2026-02-20',project:'City of El Paso de Robles (PRPD)',type:'income',amount:1400,notes:'Check #81829'}],'2026-03':[{id:'s4',date:'2026-03-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3171'},{id:'s5',date:'2026-03-13',project:'City of Paso — PRPD Annual Report',type:'income',amount:13600,notes:'Check #82338'}],'2026-04':[{id:'s6',date:'2026-04-03',project:'SLO Country Club (Jessica Maguire)',type:'income',amount:7392,notes:'HoneyBook Invoice #000360-002'}]};
 const SEED_P=[{id:'p1',project:'SCGC Monthly Retainer',client:'SCGC',amount:1699,invDate:'2026-04-01',dueDate:'2026-04-29',status:'invoiced'},{id:'p2',project:'Cal Poly Golf',client:'Cal Poly',amount:3000,invDate:'',dueDate:'2026-05-01',status:'pending'},{id:'p3',project:'SLO Country Club',client:'SLO CC',amount:7177,invDate:'2026-04-01',dueDate:'2026-04-15',status:'invoiced'},{id:'p4',project:'Idlers Spots — Deposit',client:'Idlers',amount:2250,invDate:'',dueDate:'2026-04-30',status:'pending'},{id:'p5',project:'M&A — Stanislaus',client:'M&A',amount:2000,invDate:'',dueDate:'2026-05-15',status:'pending'}];
 let data={},debts={},pipeline=[],debtPayId=null,pipeFilter='month';
@@ -428,6 +428,8 @@ function syncPipelineToEntries(){
 let debtChart=null;
 const CHART_MONTHS=['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
 const CHART_LABELS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function acct(d){return {...d,...(debts[d.id]||{})};}
+function dueSoon(due){const t=new Date(),dt=new Date(due+' '+t.getFullYear());if(isNaN(dt))return false;const days=(dt-t)/864e5;return days>=-1&&days<=7;}
 function totalDebtNow(){return Object.values(debts).reduce((s,d)=>s+(d.balance||0),0);}
 function snapshotDebt(){
   // Save current total for current month
@@ -545,9 +547,7 @@ function renderProjector(){
   const totEl=document.getElementById('projector-total');
   if(!rows||!totEl)return;
   // Build payoff simulation using avalanche
-  const accounts=DEBTS.filter(d=>d.apr>0).map(d=>({
-    ...d, balance:debts[d.id]?.balance||d.balance
-  })).filter(d=>d.balance>0).sort((a,b)=>b.apr-a.apr);
+  const accounts=DEBTS.map(acct).filter(d=>d.apr>0&&d.balance>0).sort((a,b)=>b.apr-a.apr);
   let totalMonths=0;
   let totalInterest=0;
   const results=[];
@@ -712,13 +712,13 @@ function setPipeFilter(f){
   }
   renderPipeline();
 }
-function estInt(){return Object.values(debts).reduce((s,d)=>{const apr=(DEBTS.find(x=>x.id===d.id)||{}).apr||0;return s+(d.balance*(apr/100/12));},0);}
+function estInt(){return Object.values(debts).reduce((s,d)=>{const apr=d.apr||(DEBTS.find(x=>x.id===d.id)||{}).apr||0;return s+(d.balance*(apr/100/12));},0);}
 function projRec(){return pipeline.filter(p=>p.status!=='received').reduce((s,p)=>s+(p.amount||0),0);}
 function renderStats(){
   const tot=Object.values(debts).reduce((s,d)=>s+(d.balance||0),0);
-  const min=DEBTS.reduce((s,d)=>s+(d.min||0),0);
+  const min=DEBTS.map(acct).filter(d=>d.balance>0).reduce((s,d)=>s+(d.min||0),0);
   document.getElementById('s-total').textContent=fmt(tot);
-  document.getElementById('s-accts').textContent=DEBTS.length+' accounts';
+  document.getElementById('s-accts').textContent=DEBTS.map(acct).filter(d=>d.balance>0).length+' accounts';
   document.getElementById('s-min').textContent=fmt(min);
   document.getElementById('s-proj').textContent=fmt(projRec());
   document.getElementById('goal-int').textContent='~'+fmt(estInt());
@@ -734,8 +734,8 @@ function renderGoal(){
 }
 function renderDebtGrid(){
   document.getElementById('debt-grid').innerHTML=DEBTS.map(d=>{
-    const dbt=debts[d.id]||d;const paid=dbt.paid||0;const aprL=d.apr>0?d.apr.toFixed(2)+'%':'—';const soon=d.due.includes('Apr');
-    return`<div class="dc ${d.ac}" onclick="openDebtPay('${d.id}')"><div class="dc-name">${d.name}</div><div class="dc-bal">${fmt(dbt.balance)}</div><div class="dc-meta"><span class="dc-apr ${d.ac}">${aprL}</span><span class="dc-due${soon?' soon':''}">${d.due}</span></div><div class="dc-min">Min: ${fmt(d.min)}</div>${paid>0?`<div class="dc-paid">↓ ${fmt(paid)} logged</div>`:''}</div>`;
+    const dbt=acct(d);const paid=dbt.paid||0;const aprL=dbt.apr>0?Number(dbt.apr).toFixed(2)+'%':'—';const soon=dbt.balance>0&&dueSoon(dbt.due);
+    return`<div class="dc ${d.ac}" onclick="openDebtPay('${d.id}')"><div class="dc-name">${d.name}</div><div class="dc-bal">${fmt(dbt.balance)}</div><div class="dc-meta"><span class="dc-apr ${d.ac}">${aprL}</span><span class="dc-due${soon?' soon':''}">${dbt.balance>0?dbt.due:'Paid off'}</span></div><div class="dc-min">Min: ${fmt(dbt.balance>0?dbt.min:0)}</div>${paid>0?`<div class="dc-paid">↓ ${fmt(paid)} logged</div>`:''}</div>`;
   }).join('');
 }
 function renderEntries(){
@@ -995,6 +995,7 @@ function matchDebtAccount(p){
     if(last4&&d.id.endsWith(last4))return d.id;
   }
   // Fuzzy lender match
+  if(lender.includes('american express')||lender.includes('amex')||lender.includes('marriott')||last4==='1005')return'amex';
   if(lender.includes('chrysler'))return'chrysler';
   if(lender.includes('b&h')||lender.includes('bh')||lender.includes('payboo')||lender.includes('8851'))return'bh';
   if(lender.includes('line of credit')||lender.includes('loc')||lender.includes('2001'))return'loc';
@@ -1052,13 +1053,21 @@ function renderStatementResults(){
 }
 function applyStatements(){
   let expenseCount=0;
-  pendingStatements.forEach((p,i)=>{
-    const sel=document.getElementById('stmt-match-'+i);
-    const id=sel?sel.value:'';
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const items=pendingStatements.map((p,i)=>{const sel=document.getElementById('stmt-match-'+i);return {p,id:sel?sel.value:''};})
+    .sort((a,b)=>(a.p.statementDate||'').localeCompare(b.p.statementDate||''));
+  const lastDate={};let newestMonth=null;
+  items.forEach(({p,id})=>{
     if(id&&debts[id]){
-      debts[id].balance=p.newBalance;
-      if(p.minimumDue)debts[id].min=p.minimumDue;
-      if(p.apr)DEBTS.find(x=>x.id===id).apr=p.apr;
+      const sd=p.statementDate||'';
+      if(!lastDate[id]||sd>=lastDate[id]){
+        lastDate[id]=sd;
+        debts[id].balance=p.newBalance;
+        if(p.minimumDue!=null)debts[id].min=p.minimumDue;
+        if(p.apr)debts[id].apr=p.apr;
+        if(p.dueDate&&/^\d{4}-\d{2}-\d{2}$/.test(p.dueDate)){const [y,m,dd]=p.dueDate.split('-');debts[id].due=MO[+m-1]+' '+(+dd);}
+      }
+      if(sd&&(!newestMonth||sd.slice(0,7)>newestMonth))newestMonth=sd.slice(0,7);
     }
     // Import transactions into expenses
     if(p.transactions&&p.transactions.length){
@@ -1078,6 +1087,7 @@ function applyStatements(){
   });
   lsSet('ac_debts',debts);
   snapshotDebt();
+  if(newestMonth){const sn=lsGet('ac_debt_snaps')||{};sn[newestMonth]=totalDebtNow();lsSet('ac_debt_snaps',sn);}
   renderDebtGrid();renderStats();renderDebtChart();renderProjector();renderCashPosition();renderExpenses();
   clearStatements();
   setStmtSt('✓ Updated! Balances saved'+(expenseCount>0?' · '+expenseCount+' transactions imported to Expenses':''),'done');
