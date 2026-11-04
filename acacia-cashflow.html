@@ -180,13 +180,11 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
     <div class="stat"><div class="stat-lbl">Min Due This Cycle</div><div class="stat-val gold" id="s-min">—</div><div class="stat-hint">autopay active on most</div></div>
     <div class="stat"><div class="stat-lbl">Projected Receivable</div><div class="stat-val forest" id="s-proj">—</div><div class="stat-hint">invoiced + anticipated</div></div>
   </div>
-  <div class="alert">⚠️ <span><strong>B&amp;H Payboo — two deferred plans:</strong> $644 must be paid in full by <strong>Aug 13, 2026</strong> or 35.99% APR backdates ($509 accrued). Second plan: $1,194.45 due by <strong>Feb 27, 2027</strong> ($81 accrued). Pay more than the $65 minimum to clear these in time.</span></div>
+  <div class="alert">⚠️ <span><strong>B&amp;H Payboo — three deferred-interest plans</strong> (Oct 2 statement). Each must be paid in full by its date or the accrued interest posts at 35.99%: <strong>$95.40 by Mar 2, 2027</strong> ($241.88 accrued) · <strong>$893.71 by Jul 2, 2027</strong> ($95.24) · <strong>$1,406.17 by Oct 1, 2027</strong> ($35.07 and growing). The $222/mo autopay clears all three on time as long as no new B&amp;H purchases are added.</span></div>
   <div class="strategy">
     <h3>Avalanche Strategy — Attack Highest APR First</h3>
-    <p>Pay minimums on everything. Every extra dollar goes to the highest-APR balance first, then roll to the next when paid off.</p>
-    <div class="av-pills">
-      <span class="av-pill hot">1 · B&amp;H 35.99%</span><span class="av-pill hot">2 · ...0522 22.74%</span><span class="av-pill mid">3 · ...8078 19.49%</span><span class="av-pill mid">4 · ...1661 16.74%</span><span class="av-pill cool">5 · LOC 12.40%</span><span class="av-pill cool">6 · Chrysler 7.48%</span>
-    </div>
+    <p>Pay minimums on everything. Every extra dollar goes to the highest-APR balance that is actually charging interest, then rolls to the next when paid off. B&amp;H stays on its $222 autopay: its promo plans cost 0% if cleared on time, so extra dollars save more elsewhere. AmEx is paid in full each month by autopay.</p>
+    <div class="av-pills" id="av-pills"></div>
   </div>
   <div class="slbl">Accounts — click any to log a payment</div>
   <div class="debt-grid" id="debt-grid"></div>
@@ -361,7 +359,7 @@ body{background:var(--black);color:var(--t1);font-family:var(--sans);font-size:1
 const GOAL=35000;
 let curMonth=new Date().toISOString().slice(0,7);
 let expenses={};
-const DEBTS=[{id:'bh',name:'B&H Payboo ...8851',balance:1838.45,min:65,due:'May 27',apr:35.99,ac:'high'},{id:'ch-0522',name:'Ink Unlimited ...0522',balance:743.16,min:40,due:'May 28',apr:22.74,ac:'high'},{id:'ch-8078',name:'Ink Preferred ...8078',balance:31973.53,min:854,due:'May 15',apr:19.49,ac:'mid'},{id:'ch-1661',name:'Ink Biz Cash ...1661',balance:3322.03,min:78,due:'Jun 7',apr:16.74,ac:'mid'},{id:'loc',name:'Bus Credit Line ...2001',balance:79479.26,min:1634.35,due:'Jun 1',apr:12.40,ac:'cool'},{id:'amex',name:'AmEx Marriott ...91005',balance:448.20,min:35,due:'Nov 13',apr:28.49,ac:'high'},{id:'chrysler',name:'Chrysler Capital',balance:3778.85,min:960.88,due:'Jun 6',apr:7.48,ac:'cool'}];
+const DEBTS=[{id:'bh',name:'B&H Payboo ...8851',balance:1838.45,min:65,due:'May 27',apr:35.99,ac:'high',deferred:true,autopay:222},{id:'ch-0522',name:'Ink Unlimited ...0522',balance:743.16,min:40,due:'May 28',apr:22.74,ac:'high'},{id:'ch-8078',name:'Ink Preferred ...8078',balance:31973.53,min:854,due:'May 15',apr:19.49,ac:'mid'},{id:'ch-1661',name:'Ink Biz Cash ...1661',balance:3322.03,min:78,due:'Jun 7',apr:16.74,ac:'mid'},{id:'loc',name:'Bus Credit Line ...2001',balance:79479.26,min:1634.35,due:'Jun 1',apr:12.40,ac:'cool'},{id:'amex',name:'AmEx Marriott ...91005',balance:448.20,min:35,due:'Nov 13',apr:28.49,ac:'high',pif:true},{id:'chrysler',name:'Chrysler Capital',balance:3778.85,min:960.88,due:'Jun 6',apr:7.48,ac:'cool'}];
 const SEED_E={'2026-02':[{id:'s1',date:'2026-02-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3167'},{id:'s2',date:'2026-02-13',project:'County of SLO — Dairy Creek',type:'income',amount:4292,notes:'Check #3101536'},{id:'s3',date:'2026-02-20',project:'City of El Paso de Robles (PRPD)',type:'income',amount:1400,notes:'Check #81829'}],'2026-03':[{id:'s4',date:'2026-03-01',project:'Romano Design',type:'income',amount:500,notes:'Check #3171'},{id:'s5',date:'2026-03-13',project:'City of Paso — PRPD Annual Report',type:'income',amount:13600,notes:'Check #82338'}],'2026-04':[{id:'s6',date:'2026-04-03',project:'SLO Country Club (Jessica Maguire)',type:'income',amount:7392,notes:'HoneyBook Invoice #000360-002'}]};
 const SEED_P=[{id:'p1',project:'SCGC Monthly Retainer',client:'SCGC',amount:1699,invDate:'2026-04-01',dueDate:'2026-04-29',status:'invoiced'},{id:'p2',project:'Cal Poly Golf',client:'Cal Poly',amount:3000,invDate:'',dueDate:'2026-05-01',status:'pending'},{id:'p3',project:'SLO Country Club',client:'SLO CC',amount:7177,invDate:'2026-04-01',dueDate:'2026-04-15',status:'invoiced'},{id:'p4',project:'Idlers Spots — Deposit',client:'Idlers',amount:2250,invDate:'',dueDate:'2026-04-30',status:'pending'},{id:'p5',project:'M&A — Stanislaus',client:'M&A',amount:2000,invDate:'',dueDate:'2026-05-15',status:'pending'}];
 let data={},debts={},pipeline=[],debtPayId=null,pipeFilter='month';
@@ -547,7 +545,7 @@ function renderProjector(){
   const totEl=document.getElementById('projector-total');
   if(!rows||!totEl)return;
   // Build payoff simulation using avalanche
-  const accounts=DEBTS.map(acct).filter(d=>d.apr>0&&d.balance>0).sort((a,b)=>b.apr-a.apr);
+  const accounts=DEBTS.map(acct).filter(d=>d.apr>0&&d.balance>0&&!d.pif).sort((a,b)=>(b.deferred?0:b.apr)-(a.deferred?0:a.apr));
   let totalMonths=0;
   let totalInterest=0;
   const results=[];
@@ -560,10 +558,10 @@ function renderProjector(){
     let extraLeft=extra;
     remaining.forEach((a,i)=>{
       if(a.balance<=0)return;
-      const interest=a.balance*(a.apr/100/12);
+      const interest=a.deferred?0:a.balance*(a.apr/100/12);
       totalInterest+=interest;
       a.balance+=interest;
-      a.balance-=a.min;
+      a.balance-=Math.max(a.min||0,a.autopay||0);
       if(a.balance<0)a.balance=0;
     });
     // Apply extra to highest APR with balance
@@ -712,9 +710,20 @@ function setPipeFilter(f){
   }
   renderPipeline();
 }
-function estInt(){return Object.values(debts).reduce((s,d)=>{const apr=d.apr||(DEBTS.find(x=>x.id===d.id)||{}).apr||0;return s+(d.balance*(apr/100/12));},0);}
+function estInt(){return Object.values(debts).reduce((s,d)=>{const base=DEBTS.find(x=>x.id===d.id)||{};if(base.deferred||base.pif)return s;const apr=d.apr||base.apr||0;return s+(d.balance*(apr/100/12));},0);}
 function projRec(){return pipeline.filter(p=>p.status!=='received').reduce((s,p)=>s+(p.amount||0),0);}
+function renderAvPills(){
+  const el=document.getElementById('av-pills');if(!el)return;
+  const short=d=>d.id==='loc'?'LOC':d.id.startsWith('ch-')?'...'+d.id.slice(3):d.name.split(' ')[0];
+  const cls=a=>a>=22?'hot':a>=15?'mid':'cool';
+  const live=DEBTS.map(acct).filter(d=>d.balance>0&&!d.pif);
+  const attack=live.filter(d=>!d.deferred&&d.apr>0).sort((a,b)=>b.apr-a.apr);
+  const hold=live.filter(d=>d.deferred);
+  el.innerHTML=attack.map((d,i)=>`<span class="av-pill ${cls(d.apr)}">${i+1} · ${short(d)} ${Number(d.apr).toFixed(2)}%</span>`).join('')
+    +hold.map(d=>`<span class="av-pill cool">B&amp;H · promo, $${d.autopay}/mo autopay</span>`).join('');
+}
 function renderStats(){
+  renderAvPills();
   const tot=Object.values(debts).reduce((s,d)=>s+(d.balance||0),0);
   const min=DEBTS.map(acct).filter(d=>d.balance>0).reduce((s,d)=>s+(d.min||0),0);
   document.getElementById('s-total').textContent=fmt(tot);
